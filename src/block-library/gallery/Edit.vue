@@ -10,7 +10,6 @@ const props = defineProps({
 
 const emit = defineEmits(['update:attributes'])
 const store = useEditorStore()
-const fileInput = ref(null)
 
 const images = computed({
   get: function () {
@@ -30,10 +29,6 @@ const columns = computed({
     store.commitBlockChanges()
   },
 })
-
-function handleUploadClick() {
-  fileInput.value?.click()
-}
 
 function handleFileChange(e) {
   var files = Array.from(e.target.files || [])
@@ -77,7 +72,7 @@ function removeImage(index) {
         <option :value="3">3</option>
         <option :value="4">4</option>
       </select>
-      <button type="button" @click="handleUploadClick">添加图片</button>
+
       <button type="button" @click="addByUrl">输入URL</button>
     </div>
 
@@ -88,7 +83,7 @@ function removeImage(index) {
       </div>
     </div>
 
-    <div v-else class="gallery-placeholder" @click="handleUploadClick">
+    <div v-else class="gallery-placeholder">
       <div class="placeholder-content">
         <span class="placeholder-icon">◩</span>
         <p>点击添加图片到画廊</p>

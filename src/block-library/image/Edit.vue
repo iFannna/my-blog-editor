@@ -1,10 +1,6 @@
 <template>
-  <div
-    class="wp-block-image"
-    :class="{ 'is-selected': isSelected }"
-    @click="toggleSelect"
-    tabindex="0"
-  >
+  <!-- 无图片时：占位符 -->
+  <div v-if="!url" class="wp-block-image" @dragover.prevent @drop.prevent="handleDrop">
     <div class="header">
       <span class="icon" v-html="imageIcon"></span>
       <span>图片</span>
@@ -15,26 +11,123 @@
       <button class="button" @click.stop="onMediaLibrary">媒体库</button>
       <button class="button" @click.stop="onInsertUrl">URL插入</button>
     </div>
+    <input
+      ref="fileInput"
+      type="file"
+      accept="image/*"
+      style="display: none"
+      @change="handleFileChange"
+    />
   </div>
+
+  <!-- 有图片时：显示图片 -->
+  <figure v-else class="wp-block-image">
+    <img :src="url" :alt="alt" />
+    <figcaption v-if="caption">{{ caption }}</figcaption>
+  </figure>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useEditorStore } from '../../editor/store.js'
 import { getIcon } from '@/icons/index.js'
-const imageIcon = getIcon('image')
-const isSelected = ref(false)
 
-function toggleSelect() {
-  isSelected.value = !isSelected.value
+const props = defineProps({
+  attributes: {
+    type: Object,
+    required: true,
+  },
+  clientId: {
+    type: String,
+    required: true,
+  },
+  isSelected: {
+    type: Boolean,
+    default: false,
+  },
+})
+
+const emit = defineEmits(['update:attributes'])
+const store = useEditorStore()
+
+const imageIcon = getIcon('image')
+const fileInput = ref(null)
+
+// 属性
+const url = computed({
+  get() {
+    return props.attributes.url || ''
+  },
+  set(val) {
+    emit('update:attributes', { url: val })
+  },
+})
+
+const alt = computed({
+  get() {
+    return props.attributes.alt || ''
+  },
+  set(val) {
+    emit('update:attributes', { alt: val })
+  },
+})
+
+const caption = computed({
+  get() {
+    return props.attributes.caption || ''
+  },
+  set(val) {
+    emit('update:attributes', { caption: val })
+  },
+})
+
+// 上传按钮
+function onUpload() {
+  fileInput.value?.click()
 }
-function onUpload(e) {
-  // 上传逻辑
+
+function handleFileChange(e) {
+  var file = e.target.files && e.target.files[0]
+  if (file) {
+    var reader = new FileReader()
+    reader.onload = function () {
+      url.value = reader.result
+      store.commitBlockChanges()
+    }
+    reader.readAsDataURL(file)
+  }
+  e.target.value = ''
 }
-function onMediaLibrary(e) {
-  // 打开媒体库逻辑
+
+// 媒体库按钮
+function onMediaLibrary() {
+  // 媒体库功能待实现
+  alert('媒体库功能待实现')
 }
-function onInsertUrl(e) {
-  // 插入链接逻辑
+
+// URL插入按钮
+function onInsertUrl() {
+  var inputUrl = prompt('请输入图片地址:')
+  if (inputUrl) {
+    url.value = inputUrl
+    store.commitBlockChanges()
+  }
+}
+
+// 拖拽上传
+function handleDrop(e) {
+  var files = e.dataTransfer.files
+  if (files && files.length > 0) {
+    var file = files[0]
+    if (file.type.startsWith('image/')) {
+      var reader = new FileReader()
+      reader.onload = function () {
+        url.value = reader.result
+        store.commitBlockChanges()
+      }
+      reader.readAsDataURL(file)
+    }
+  }
 }
 </script>
 

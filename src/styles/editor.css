@@ -787,7 +787,6 @@ h6.wp-block-heading {
      块样式 - 图片
      ============================================ */
 .wp-block-image {
-  background: #ebebeb;
   border: none;
   border-radius: 3px;
   box-sizing: border-box;
@@ -859,9 +858,7 @@ h6.wp-block-heading {
   background: #e9f2ff;
 }
 
-.wp-block-image.is-selected {
-  border: 2px solid #366ef4;
-  box-shadow: 0 0 0 3px rgba(54, 110, 244, 0.1);
+.wp-block-image:hover {
   background: #fff;
 }
 
