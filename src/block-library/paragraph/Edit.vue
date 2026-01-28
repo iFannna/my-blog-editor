@@ -50,13 +50,43 @@ function handleChangeComplete() {
 
 <template>
   <div class="paragraph-block-wrapper">
-    <FormatToolbar
-      v-if="isSelected"
-      :editor-ref="editorRef"
-      :show-align="true"
-      :text-align="textAlign"
-      @update:text-align="textAlign = $event"
-    />
+    <div v-if="isSelected" class="block-editor-format-toolbar paragraph-toolbar">
+      <button
+        type="button"
+        class="format-button"
+        :class="{ 'is-active': textAlign === 'left' || !textAlign }"
+        title="左对齐"
+        @click="textAlign = 'left'"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M4 5h16v1.5H4V5zm0 5.5h10V12H4v-1.5zm0 5.5h16v1.5H4V16z" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="format-button"
+        :class="{ 'is-active': textAlign === 'center' }"
+        title="居中对齐"
+        @click="textAlign = 'center'"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M4 5h16v1.5H4V5zm3 5.5h10V12H7v-1.5zM4 16h16v1.5H4V16z" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="format-button"
+        :class="{ 'is-active': textAlign === 'right' }"
+        title="右对齐"
+        @click="textAlign = 'right'"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M4 5h16v1.5H4V5zm6 5.5h10V12H10v-1.5zM4 16h16v1.5H4V16z" fill="currentColor" />
+        </svg>
+      </button>
+      <div class="format-divider"></div>
+      <FormatToolbar :editor-ref="editorRef" />
+    </div>
     <RichTextEditor
       ref="editorRef"
       v-model="content"
@@ -68,3 +98,5 @@ function handleChangeComplete() {
     />
   </div>
 </template>
+
+<style scoped></style>

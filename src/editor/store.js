@@ -3,7 +3,7 @@
  */
 
 import { defineStore } from 'pinia'
-import { createBlock } from '../blocks/index.js'
+import { createBlock, getBlockType } from '../blocks/index.js'
 
 var MAX_HISTORY = 50
 
@@ -53,13 +53,12 @@ export const useEditorStore = defineStore('editor', {
   },
 
   actions: {
-    // 立即保存历史记录（用于明确的操作如删除、移动等）
+    // 立即保存历史记录
     saveHistory: function () {
       if (this.isHistoryAction) {
         return
       }
 
-      // 清除防抖定时器
       if (saveHistoryTimer) {
         clearTimeout(saveHistoryTimer)
         saveHistoryTimer = null
@@ -68,7 +67,7 @@ export const useEditorStore = defineStore('editor', {
       this._doSaveHistory()
     },
 
-    // 延迟保存历史记录（用于连续输入）
+    // 延迟保存历史记录
     saveHistoryDebounced: function () {
       var self = this
 
@@ -112,7 +111,6 @@ export const useEditorStore = defineStore('editor', {
         return
       }
 
-      // 清除防抖定时器
       if (saveHistoryTimer) {
         clearTimeout(saveHistoryTimer)
         saveHistoryTimer = null
@@ -162,18 +160,24 @@ export const useEditorStore = defineStore('editor', {
       return block
     },
 
-    // 更新属性 - 使用防抖保存
+    // 在指定位置插入解析后的块
+    insertBlockAt: function (blockName, attributes, index) {
+      var block = createBlock(blockName, attributes)
+      this.blocks.splice(index, 0, block)
+      this.selectedBlockId = block.clientId
+      this.saveHistory()
+      return block
+    },
+
     updateBlockAttributes: function (clientId, attributes) {
       var block = this.blocks.find(function (b) {
         return b.clientId === clientId
       })
       if (block) {
         block.attributes = Object.assign({}, block.attributes, attributes)
-        // 不立即保存，等待防抖或明确的完成信号
       }
     },
 
-    // 内容编辑完成 - 立即保存历史
     commitBlockChanges: function () {
       this.saveHistory()
     },
@@ -257,6 +261,86 @@ export const useEditorStore = defineStore('editor', {
       return this.blocks.findIndex(function (b) {
         return b.clientId === clientId
       })
+    },
+
+    // ========== 序列化和解析块 ==========
+
+    // 序列化块为 WordPress 风格的 HTML
+    serializeBlock: function (block) {
+      var blockType = getBlockType(block.name)
+      if (!blockType) {
+        return ''
+      }
+
+      var blockName = block.name.replace('core/', '')
+      var attributes = block.attributes || {}
+
+      // 生成块内容
+      var content = ''
+      if (blockType.save) {
+        content = blockType.save({ attributes: attributes })
+      }
+
+      // 生成属性 JSON（如果有非默认属性）
+      var attrDefs = blockType.attributes || {}
+      var nonDefaultAttrs = {}
+      var hasNonDefault = false
+
+      for (var key in attributes) {
+        var defaultVal = attrDefs[key] ? attrDefs[key].default : undefined
+        if (JSON.stringify(attributes[key]) !== JSON.stringify(defaultVal)) {
+          nonDefaultAttrs[key] = attributes[key]
+          hasNonDefault = true
+        }
+      }
+
+      var attrStr = ''
+      if (hasNonDefault) {
+        attrStr = ' ' + JSON.stringify(nonDefaultAttrs)
+      }
+
+      // 生成 WordPress 风格的 HTML
+      var html = '<!-- wp:' + blockName + attrStr + ' -->\n'
+      html += content + '\n'
+      html += '<!-- /wp:' + blockName + ' -->'
+
+      return html
+    },
+
+    // 解析 WordPress 风格的 HTML 为块数据
+    parseBlockHtml: function (html) {
+      if (!html || typeof html !== 'string') {
+        return null
+      }
+
+      // 匹配 WordPress 块注释
+      var regex = /<!-- wp:(\w+)(?:\s+(\{[\s\S]*?\}))?\s*-->\s*([\s\S]*?)\s*<!-- \/wp:\1 -->/
+      var match = html.trim().match(regex)
+
+      if (!match) {
+        return null
+      }
+
+      var blockName = 'core/' + match[1]
+      var attrJson = match[2] || '{}'
+      var attributes = {}
+
+      try {
+        attributes = JSON.parse(attrJson)
+      } catch (e) {
+        attributes = {}
+      }
+
+      // 验证块类型是否存在
+      var blockType = getBlockType(blockName)
+      if (!blockType) {
+        return null
+      }
+
+      return {
+        name: blockName,
+        attributes: attributes,
+      }
     },
   },
 })

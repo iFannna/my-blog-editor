@@ -3,17 +3,24 @@
  */
 
 export function getActiveFormats(value) {
-  const { formats, start, end } = value
+  const { formats, start, end, pendingFormats } = value
+
+  // 如果有待应用的格式（用于光标位置切换格式），优先返回
+  if (pendingFormats && pendingFormats.length > 0) {
+    return pendingFormats
+  }
 
   if (start === undefined || end === undefined) {
     return []
   }
 
-  // 光标位置（无选区）
+  // 光标位置
   if (start === end) {
+    // 如果在开头位置，检查是否有格式
     if (start === 0) {
       return formats[0] || []
     }
+    // 返回光标前一个字符的格式
     return formats[start - 1] || []
   }
 

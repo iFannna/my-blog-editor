@@ -3,17 +3,23 @@
  */
 
 import { ref, watch, onMounted, onBeforeUnmount, toValue } from 'vue'
-import { create, toHtmlString, toggleFormat, getActiveFormats } from '../rich-text/index.js'
+import {
+  create,
+  toHtmlString,
+  toggleFormat,
+  applyFormat,
+  removeFormat,
+  getActiveFormats,
+} from '../rich-text/index.js'
 
 export function useRichText(options) {
   var value = options.value
   var onChange = options.onChange
-  var onChangeComplete = options.onChangeComplete // 新增：输入完成回调
+  var onChangeComplete = options.onChangeComplete
 
   var editorRef = ref(null)
   var richTextValue = ref(create({ html: toValue(value) }))
 
-  // 是否正在进行输入法组合输入
   var isComposing = ref(false)
 
   function syncFromDOM() {
@@ -61,7 +67,55 @@ export function useRichText(options) {
     richTextValue.value = toggleFormat(richTextValue.value, formatObj)
     syncToDOM()
 
-    // 格式化操作完成后触发完成回调
+    if (onChangeComplete) {
+      onChangeComplete()
+    }
+  }
+
+  // 专门用于高亮的方法，使用传入的 start/end
+  function applyHighlight(start, end, attributes) {
+    if (start === undefined || end === undefined || start >= end) {
+      return
+    }
+
+    // 先同步当前 DOM 内容（但不读取选区）
+    if (editorRef.value) {
+      var html = editorRef.value.innerHTML
+      richTextValue.value = create({ html: html })
+    }
+
+    // 使用传入的 start/end
+    richTextValue.value.start = start
+    richTextValue.value.end = end
+
+    var formatObj = {
+      type: 'highlight',
+      attributes: attributes || {},
+    }
+
+    richTextValue.value = applyFormat(richTextValue.value, formatObj)
+    syncToDOM()
+
+    if (onChangeComplete) {
+      onChangeComplete()
+    }
+  }
+
+  // 移除高亮
+  function removeHighlightFormat(start, end) {
+    if (editorRef.value) {
+      var html = editorRef.value.innerHTML
+      richTextValue.value = create({ html: html })
+    }
+
+    if (start !== undefined && end !== undefined) {
+      richTextValue.value.start = start
+      richTextValue.value.end = end
+    }
+
+    richTextValue.value = removeFormat(richTextValue.value, 'highlight')
+    syncToDOM()
+
     if (onChangeComplete) {
       onChangeComplete()
     }
@@ -74,27 +128,38 @@ export function useRichText(options) {
     })
   }
 
-  // 输入处理
+  function getActiveFormat(formatType) {
+    var active = getActiveFormats(richTextValue.value)
+    return active.find(function (f) {
+      return f.type === formatType
+    })
+  }
+
+  // 获取当前选区
+  function getSelection() {
+    syncFromDOM()
+    return {
+      start: richTextValue.value.start,
+      end: richTextValue.value.end,
+    }
+  }
+
   function handleInput() {
     syncFromDOM()
     onChange(toHtmlString({ value: richTextValue.value }))
 
-    // 只有不在组合输入时才触发完成回调
     if (!isComposing.value && onChangeComplete) {
       onChangeComplete()
     }
   }
 
-  // 输入法组合开始
   function handleCompositionStart() {
     isComposing.value = true
   }
 
-  // 输入法组合结束
   function handleCompositionEnd() {
     isComposing.value = false
 
-    // 组合输入结束后，同步并触发完成回调
     syncFromDOM()
     onChange(toHtmlString({ value: richTextValue.value }))
 
@@ -103,7 +168,6 @@ export function useRichText(options) {
     }
   }
 
-  // 快捷键处理
   function handleKeyDown(e) {
     var isMod = e.metaKey || e.ctrlKey
 
@@ -163,8 +227,12 @@ export function useRichText(options) {
     richTextValue: richTextValue,
     format: format,
     isFormatActive: isFormatActive,
+    getActiveFormat: getActiveFormat,
     syncFromDOM: syncFromDOM,
     isComposing: isComposing,
+    getSelection: getSelection,
+    applyHighlight: applyHighlight,
+    removeHighlightFormat: removeHighlightFormat,
   }
 }
 

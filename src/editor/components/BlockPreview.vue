@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { getBlockType } from '../../blocks/index.js'
 
 const props = defineProps({
@@ -15,8 +15,53 @@ const props = defineProps({
   },
 })
 
+const formulaPreviewRef = ref(null)
+
 const blockType = computed(function () {
   return getBlockType(props.blockName)
+})
+
+// 渲染数学公式预览
+function renderFormulaPreview() {
+  if (props.blockName !== 'core/formula' || !formulaPreviewRef.value) {
+    return
+  }
+
+  import('katex')
+    .then(function (katexModule) {
+      var katex = katexModule.default
+      try {
+        katex.render('x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}', formulaPreviewRef.value, {
+          displayMode: true,
+          throwOnError: false,
+          output: 'html',
+        })
+      } catch (e) {
+        formulaPreviewRef.value.textContent = 'x = (-b ± √(b²-4ac)) / 2a'
+      }
+    })
+    .catch(function () {
+      if (formulaPreviewRef.value) {
+        formulaPreviewRef.value.textContent = 'x = (-b ± √(b²-4ac)) / 2a'
+      }
+    })
+}
+
+watch(
+  function () {
+    return props.blockName
+  },
+  function () {
+    if (props.blockName === 'core/formula') {
+      setTimeout(renderFormulaPreview, 0)
+    }
+  },
+)
+
+onMounted(function () {
+  if (props.blockName === 'core/formula') {
+    renderFormulaPreview()
+  }
 })
 
 const previewContent = computed(function () {
@@ -34,7 +79,7 @@ const previewContent = computed(function () {
       return '<h2 class="wp-block-heading">这是一个标题</h2>'
 
     case 'core/image':
-      return '<figure class="wp-block-image preview-figure"><div class="preview-image-placeholder"><svg viewBox="0 0 24 24" width="48" height="48"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c-.1-.3.1-.5.4-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z" fill="currentColor"/></svg></div><figcaption>图片说明文字</figcaption></figure>'
+      return '<figure class="wp-block-image preview-figure"><div class="preview-image-placeholder"><svg viewBox="0 0 24 24" width="48" height="48"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11 15l-3-3c-.3-.3-.8-.3-1 0l-2.5 2.5V5c0-.3.2-.5.5-.5z" fill="#757575"/></svg><span>图片</span></div></figure>'
 
     case 'core/code':
       return '<pre class="wp-block-code"><code>function hello() {\n  console.log("Hello!");\n}</code></pre>'
@@ -48,8 +93,11 @@ const previewContent = computed(function () {
     case 'core/details':
       return '<details class="wp-block-details" open><summary>点击展开详情</summary><p>这里是隐藏的详细内容，点击标题可以展开或收起。</p></details>'
 
+    case 'core/formula':
+      return ''
+
     case 'core/table':
-      return '<table class="wp-block-table"><thead><tr><th>标题 1</th><th>标题 2</th></tr></thead><tbody><tr><td>数据 1</td><td>数据 2</td></tr><tr><td>数据 3</td><td>数据 4</td></tr></tbody></table>'
+      return '<table class="wp-block-table"><thead><tr><th>标题 1</th><th>标题 2</th></tr></thead><tbody><tr><td>数据 1</td><td>数据 2</td></tr><tr><td>数据 3</td><td>���据 4</td></tr></tbody></table>'
 
     case 'core/verse':
       return '<pre class="wp-block-verse">静夜思\n床前明月光，\n疑是地上霜。\n举头望明月，\n低头思故乡。</pre>'
@@ -100,6 +148,10 @@ const previewStyle = computed(function () {
     top: props.position.y + 'px',
   }
 })
+
+const isFormulaBlock = computed(function () {
+  return props.blockName === 'core/formula'
+})
 </script>
 
 <template>
@@ -107,7 +159,14 @@ const previewStyle = computed(function () {
     <div class="block-preview-header">
       <span class="block-preview-title">{{ blockType?.title }} 预览</span>
     </div>
-    <div class="block-preview-content" v-html="previewContent"></div>
+    <div class="block-preview-content">
+      <!-- 数学公式特殊预览 -->
+      <div v-if="isFormulaBlock" class="formula-preview-wrapper">
+        <div ref="formulaPreviewRef" class="formula-preview-content"></div>
+      </div>
+      <!-- 其他块的预览 -->
+      <div v-else v-html="previewContent"></div>
+    </div>
   </div>
 </template>
 
@@ -142,6 +201,32 @@ const previewStyle = computed(function () {
   font-size: 14px;
   line-height: 1.6;
   max-height: 300px;
+  overflow: hidden;
+}
+
+/* 数学公式预览样式 */
+.formula-preview-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  padding: 16px;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.formula-preview-content {
+  text-align: center;
+}
+
+.formula-preview-content :deep(.katex) {
+  font-size: 1.1em;
+}
+
+.formula-preview-content :deep(.katex-display) {
+  margin: 0;
   overflow: hidden;
 }
 

@@ -67,8 +67,22 @@ watch([content, displayMode], function () {
   }
 })
 
+// 监听选中状态变化
+watch(
+  function () {
+    return props.isSelected
+  },
+  function (selected) {
+    if (!selected) {
+      isEditing.value = false
+      nextTick(renderFormula)
+    }
+  },
+)
+
 // 开始编辑
 function startEdit() {
+  if (!props.isSelected) return
   isEditing.value = true
   nextTick(function () {
     if (inputRef.value) {
@@ -87,8 +101,6 @@ function finishEdit() {
 // 处理输入
 function handleInput(e) {
   content.value = e.target.value
-  // 实时预览
-  nextTick(renderFormula)
 }
 
 // 快捷键
@@ -123,7 +135,14 @@ function insertExample(example) {
 </script>
 
 <template>
-  <div class="wp-block-formula" :class="{ 'is-display': displayMode, 'is-editing': isEditing }">
+  <div
+    class="wp-block-formula"
+    :class="{
+      'is-display': displayMode,
+      'is-editing': isEditing,
+      'is-selected': isSelected,
+    }"
+  >
     <!-- 工具栏 -->
     <div v-if="isSelected" class="formula-toolbar">
       <label class="toolbar-checkbox">
@@ -144,7 +163,7 @@ function insertExample(example) {
     </div>
 
     <!-- 编辑模式 -->
-    <div v-if="isEditing || (isSelected && !content)" class="formula-editor">
+    <div v-if="isEditing" class="formula-editor">
       <textarea
         ref="inputRef"
         class="formula-input"
@@ -160,17 +179,12 @@ function insertExample(example) {
     </div>
 
     <!-- 预览模式 -->
-    <div
-      v-show="!isEditing && content"
-      ref="previewRef"
-      class="formula-preview"
-      @click="startEdit"
-    ></div>
-
-    <!-- 占位符 -->
-    <div v-if="!isEditing && !content" class="formula-placeholder-block" @click="startEdit">
-      <span class="placeholder-icon">√x̄</span>
-      <span class="placeholder-text">点击输入数学公式</span>
+    <div v-if="!isEditing" class="formula-display" @click="startEdit">
+      <div v-if="content" ref="previewRef" class="formula-preview"></div>
+      <div v-else class="formula-placeholder-block">
+        <span class="placeholder-icon">√x̄</span>
+        <span class="placeholder-text">点击输入数学公式</span>
+      </div>
     </div>
 
     <!-- 错误提示 -->
@@ -189,7 +203,11 @@ function insertExample(example) {
   border-radius: 4px;
 }
 
-.wp-block-formula.is-display {
+.wp-block-formula.is-selected {
+  border-color: #007cba;
+}
+
+.wp-block-formula.is-display .formula-preview {
   text-align: center;
 }
 
@@ -250,6 +268,7 @@ function insertExample(example) {
   font-size: 14px;
   resize: vertical;
   outline: none;
+  box-sizing: border-box;
 }
 
 .formula-input:focus {
@@ -262,10 +281,12 @@ function insertExample(example) {
   color: #757575;
 }
 
+.formula-display {
+  cursor: text;
+}
+
 .formula-preview {
   min-height: 40px;
-  cursor: text;
-  overflow-x: auto;
 }
 
 .formula-preview :deep(.katex) {

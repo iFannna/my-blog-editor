@@ -12,6 +12,7 @@ const FORMAT_TAG_MAP = {
   del: 'strikethrough',
   code: 'code',
   a: 'link',
+  mark: 'highlight',
 }
 
 export function createEmptyValue() {
@@ -83,6 +84,22 @@ function createFromElement(element, inheritedFormats) {
         continue
       }
 
+      // 行内图片
+      if (tagName === 'img') {
+        const startIndex = accumulator.text.length
+        accumulator.text += '\uFFFC' // 对象替换字符
+        accumulator.formats[startIndex] =
+          inheritedFormats.length > 0 ? [...inheritedFormats] : undefined
+        accumulator.replacements[startIndex] = {
+          type: 'image',
+          attributes: {
+            src: el.getAttribute('src') || '',
+            alt: el.getAttribute('alt') || '',
+          },
+        }
+        continue
+      }
+
       // 检查是否是格式标签
       const formatType = FORMAT_TAG_MAP[tagName]
       const newFormats = [...inheritedFormats]
@@ -98,6 +115,27 @@ function createFromElement(element, inheritedFormats) {
           const target = el.getAttribute('target')
           if (target) {
             format.attributes.target = target
+          }
+        }
+
+        // 处理高亮属性（mark 标签）
+        if (formatType === 'highlight') {
+          format.attributes = {}
+          const style = el.getAttribute('style')
+          if (style) {
+            // 解析 style 属性
+            const colorMatch = style.match(/(?:^|;)\s*color\s*:\s*([^;]+)/)
+            const bgMatch = style.match(/background-color\s*:\s*([^;]+)/)
+            if (colorMatch) {
+              format.attributes.color = colorMatch[1].trim()
+            }
+            if (bgMatch) {
+              format.attributes.backgroundColor = bgMatch[1].trim()
+            }
+          }
+          const className = el.getAttribute('class')
+          if (className) {
+            format.attributes.className = className
           }
         }
 

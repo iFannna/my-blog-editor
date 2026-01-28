@@ -1353,3 +1353,7 @@ ol.wp-block-list {
 .wp-block-heading[style*='text-align: right'] {
   text-align: right;
 }
+/* 待定选区样式 */
+.pending-selection {
+  background-color: rgba(0, 0, 0, 0.15) !important;
+}

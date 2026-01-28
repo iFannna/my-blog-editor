@@ -25,6 +25,21 @@ const selectedBlockType = computed(function () {
   return getBlockType(selectedBlock.value.name)
 })
 
+// 代码语言选项（按要求顺序）
+const codeLanguages = [
+  { value: 'auto', label: '自动' },
+  { value: 'java', label: 'Java' },
+  { value: 'python', label: 'Python' },
+  { value: 'c', label: 'C' },
+  { value: 'csharp', label: 'C#' },
+  { value: 'cpp', label: 'C++' },
+  { value: 'go', label: 'Go' },
+  { value: 'html', label: 'HTML' },
+  { value: 'xml', label: 'XML' },
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'css', label: 'CSS' },
+]
+
 // 文章设置
 const postTitle = ref('添加标题')
 const postStatus = ref('草稿')
@@ -66,6 +81,7 @@ function updateBlockAttribute(key, value) {
     const attrs = {}
     attrs[key] = value
     store.updateBlockAttributes(selectedBlock.value.clientId, attrs)
+    store.commitBlockChanges()
   }
 }
 </script>
@@ -241,17 +257,15 @@ function updateBlockAttribute(key, value) {
           <!-- 代码块设置 -->
           <template v-if="selectedBlock.name === 'core/code'">
             <div class="panel-field">
-              <label class="panel-label">语言</label>
+              <label class="panel-label">编程语言</label>
               <select
                 class="panel-select"
+                :value="selectedBlock.attributes.language || 'auto'"
                 @change="updateBlockAttribute('language', $event.target.value)"
               >
-                <option value="">自动</option>
-                <option value="javascript">JavaScript</option>
-                <option value="html">HTML</option>
-                <option value="css">CSS</option>
-                <option value="python">Python</option>
-                <option value="php">PHP</option>
+                <option v-for="lang in codeLanguages" :key="lang.value" :value="lang.value">
+                  {{ lang.label }}
+                </option>
               </select>
             </div>
           </template>

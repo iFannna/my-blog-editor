@@ -9,6 +9,7 @@ const FORMAT_TO_TAG = {
   strikethrough: 's',
   code: 'code',
   link: 'a',
+  highlight: 'mark',
 }
 
 function escapeHTML(text) {
@@ -34,6 +35,39 @@ function getOpeningTag(format) {
     return '<' + tag + ' href="' + href + '"' + target + '>'
   }
 
+  // 高亮格式 - 参照 Gutenberg 的 text-color 格式
+  // 不自动添加任何背景色，只使用用户设置的颜色
+  if (format.type === 'highlight' && format.attributes) {
+    const attrs = format.attributes
+    let styleStr = ''
+    let classStr = 'has-inline-color'
+
+    // 只有当用户明确设置了背景色时才添加
+    if (
+      attrs.backgroundColor &&
+      attrs.backgroundColor !== 'transparent' &&
+      attrs.backgroundColor !== 'rgba(0, 0, 0, 0)'
+    ) {
+      styleStr += 'background-color:' + attrs.backgroundColor + ';'
+    } else {
+      // 如果没有设置背景色，使用透明背景
+      styleStr += 'background-color:rgba(0, 0, 0, 0);'
+    }
+
+    if (attrs.color) {
+      styleStr += 'color:' + attrs.color
+    }
+
+    if (attrs.className) {
+      classStr = attrs.className
+    }
+
+    const styleAttr = styleStr ? ' style="' + styleStr + '"' : ''
+    const classAttr = classStr ? ' class="' + classStr + '"' : ''
+
+    return '<' + tag + styleAttr + classAttr + '>'
+  }
+
   return '<' + tag + '>'
 }
 
@@ -43,7 +77,7 @@ function getClosingTag(format) {
 }
 
 export function toHtmlString({ value }) {
-  const { text, formats } = value
+  const { text, formats, replacements } = value
 
   if (text.length === 0) {
     return ''
@@ -55,6 +89,7 @@ export function toHtmlString({ value }) {
   for (let i = 0; i < text.length; i++) {
     const char = text[i]
     const charFormats = formats[i] || []
+    const replacement = replacements ? replacements[i] : undefined
 
     // 找出需要关闭的格式
     const formatsToClose = openFormats.filter(function (f) {
@@ -91,10 +126,23 @@ export function toHtmlString({ value }) {
       openFormats.push(formatsToOpen[m])
     }
 
+    // 处理替换对象（如行内图片）
+    if (replacement && replacement.type === 'image') {
+      const src = replacement.attributes.src || ''
+      const alt = replacement.attributes.alt || ''
+      html +=
+        '<img src="' +
+        escapeHTML(src) +
+        '" alt="' +
+        escapeHTML(alt) +
+        '" class="inline-image" style="max-height:1.5em;vertical-align:middle;" />'
+      continue
+    }
+
     // 输出字符
     if (char === '\n') {
       html += '<br>'
-    } else {
+    } else if (char !== '\uFFFC') {
       html += escapeHTML(char)
     }
   }
