@@ -85,7 +85,6 @@ function handleChangeComplete() {
         </svg>
       </button>
       <div class="format-divider"></div>
-      <!-- 注意：这里传递的是 editorRef（ref 对象），FormatToolbar 需要访问 editorRef.value -->
       <FormatToolbar :editor-ref="editorRef" />
     </div>
     <RichTextEditor

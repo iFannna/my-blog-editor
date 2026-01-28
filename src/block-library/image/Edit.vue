@@ -1,115 +1,41 @@
+<template>
+  <div
+    class="wp-block-image"
+    :class="{ 'is-selected': isSelected }"
+    @click="toggleSelect"
+    tabindex="0"
+  >
+    <div class="header">
+      <span class="icon" v-html="imageIcon"></span>
+      <span>图片</span>
+    </div>
+    <div class="tips">拖放图片、上传或从你的库中选择。</div>
+    <div class="button-row">
+      <button class="button" @click.stop="onUpload">上传</button>
+      <button class="button" @click.stop="onMediaLibrary">媒体库</button>
+      <button class="button" @click.stop="onInsertUrl">URL插入</button>
+    </div>
+  </div>
+</template>
+
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
+import { getIcon } from '@/icons/index.js'
+const imageIcon = getIcon('image')
+const isSelected = ref(false)
 
-const props = defineProps({
-  attributes: {
-    type: Object,
-    required: true,
-  },
-  clientId: {
-    type: String,
-    required: true,
-  },
-  isSelected: {
-    type: Boolean,
-    default: false,
-  },
-})
-
-const emit = defineEmits(['update:attributes'])
-
-const fileInput = ref(null)
-
-const url = computed({
-  get: function () {
-    return props.attributes.url || ''
-  },
-  set: function (val) {
-    emit('update:attributes', { url: val })
-  },
-})
-
-const alt = computed({
-  get: function () {
-    return props.attributes.alt || ''
-  },
-  set: function (val) {
-    emit('update:attributes', { alt: val })
-  },
-})
-
-const caption = computed({
-  get: function () {
-    return props.attributes.caption || ''
-  },
-  set: function (val) {
-    emit('update:attributes', { caption: val })
-  },
-})
-
-function handleUploadClick() {
-  if (fileInput.value) {
-    fileInput.value.click()
-  }
+function toggleSelect() {
+  isSelected.value = !isSelected.value
 }
-
-function handleFileChange(e) {
-  const file = e.target.files && e.target.files[0]
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = function () {
-      url.value = reader.result
-    }
-    reader.readAsDataURL(file)
-  }
+function onUpload(e) {
+  // 上传逻辑
 }
-
-function handleUrlInput() {
-  const inputUrl = prompt('请输入图片地址:', url.value)
-  if (inputUrl) {
-    url.value = inputUrl
-  }
+function onMediaLibrary(e) {
+  // 打开媒体库逻辑
+}
+function onInsertUrl(e) {
+  // 插入链接逻辑
 }
 </script>
 
-<template>
-  <figure class="wp-block-image">
-    <!-- 已有图片 -->
-    <template v-if="url">
-      <img :src="url" :alt="alt" />
-
-      <!-- 编辑状态显示说明输入框 -->
-      <input
-        v-if="isSelected"
-        v-model="caption"
-        type="text"
-        class="caption-input"
-        placeholder="添加图片说明…"
-      />
-
-      <!-- 非编辑状态显示说明文字 -->
-      <figcaption v-else-if="caption">{{ caption }}</figcaption>
-    </template>
-
-    <!-- 无图片时显示占位符 -->
-    <template v-else>
-      <div class="image-placeholder" @click="handleUploadClick">
-        <div class="placeholder-content">
-          <span class="placeholder-icon">◩</span>
-          <p>点击上传图片</p>
-          <button type="button" class="placeholder-button" @click.stop="handleUrlInput">
-            或输入图片地址
-          </button>
-        </div>
-      </div>
-
-      <input
-        ref="fileInput"
-        type="file"
-        accept="image/*"
-        style="display: none"
-        @change="handleFileChange"
-      />
-    </template>
-  </figure>
-</template>
+<style scoped></style>

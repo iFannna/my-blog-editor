@@ -97,7 +97,7 @@ const previewContent = computed(function () {
       return ''
 
     case 'core/table':
-      return '<table class="wp-block-table"><thead><tr><th>标题 1</th><th>标题 2</th></tr></thead><tbody><tr><td>数据 1</td><td>数据 2</td></tr><tr><td>数据 3</td><td>���据 4</td></tr></tbody></table>'
+      return '<table class="wp-block-table"><thead><tr><th>标题 1</th><th>标题 2</th></tr></thead><tbody><tr><td>数据 1</td><td>数据 2</td></tr><tr><td>数据 3</td><td>数据 4</td></tr></tbody></table>'
 
     case 'core/verse':
       return '<pre class="wp-block-verse">静夜思\n床前明月光，\n疑是地上霜。\n举头望明月，\n低头思故乡。</pre>'
