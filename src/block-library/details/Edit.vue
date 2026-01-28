@@ -66,29 +66,31 @@ function toggleOpen() {
 
 <style scoped>
 .wp-block-details {
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 0px !important;
 }
+
 .details-summary {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
-  background: #f9f9f9;
+  padding: 8px 0;
   cursor: pointer;
   gap: 8px;
 }
+
 .details-marker {
   font-size: 10px;
-  color: #757575;
+  color: #404040;
 }
+
 .summary-text {
   flex: 1;
   font-weight: 500;
 }
+
 .details-content {
-  padding: 16px;
-  border-top: 1px solid #ddd;
+  padding: 8px 0 8px 18px;
 }
+
 .details-content :deep(p) {
   margin: 0;
 }
