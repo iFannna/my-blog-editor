@@ -7,12 +7,21 @@ const props = defineProps({
   placeholder: String,
   tag: { type: String, default: 'div' },
   textAlign: String,
-  spellcheck: { type: Boolean, default: false }, // 拼写检查属性，默认关闭
+  spellcheck: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue', 'change-complete'])
 
-const { editorRef, format, isFormatActive, syncFromDOM } = useRichText({
+const {
+  editorRef,
+  format,
+  isFormatActive,
+  getActiveFormat,
+  syncFromDOM,
+  getSelection,
+  applyHighlight,
+  removeHighlightFormat,
+} = useRichText({
   value: toRef(props, 'modelValue'),
   onChange: (html) => emit('update:modelValue', html),
   onChangeComplete: () => emit('change-complete'),
@@ -36,7 +45,16 @@ watch(
   },
 )
 
-defineExpose({ format, isFormatActive, syncFromDOM })
+// 暴露所有需要的方法给父组件
+defineExpose({
+  format,
+  isFormatActive,
+  getActiveFormat,
+  syncFromDOM,
+  getSelection,
+  applyHighlight,
+  removeHighlightFormat,
+})
 </script>
 
 <template>

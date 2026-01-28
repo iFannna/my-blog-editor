@@ -20,38 +20,57 @@ const isHighlight = ref(false)
 const showMoreMenu = ref(false)
 const showHighlightPopover = ref(false)
 
-// 保存的选区
-const savedStart = ref(null)
-const savedEnd = ref(null)
+const savedRange = ref(null)
+
+const initialTextColor = ref('')
+const initialBgColor = ref('')
 
 const textColor = ref('')
 const backgroundColor = ref('')
 
+function getEditorElement() {
+  if (!props.editorRef) return null
+  var editor = props.editorRef.value || props.editorRef
+  if (editor && editor.$el) return editor.$el
+  if (editor && editor.nodeType === 1) return editor
+  return null
+}
+
+function getEditor() {
+  if (!props.editorRef) return null
+  return props.editorRef.value || props.editorRef
+}
+
 function updateState() {
-  if (!props.editorRef || showHighlightPopover.value) {
-    return
+  if (showHighlightPopover.value) return
+
+  var editor = getEditor()
+  if (!editor) return
+
+  if (typeof editor.syncFromDOM === 'function') {
+    editor.syncFromDOM()
   }
-  props.editorRef.syncFromDOM()
-  isBold.value = props.editorRef.isFormatActive('bold')
-  isItalic.value = props.editorRef.isFormatActive('italic')
-  isStrike.value = props.editorRef.isFormatActive('strikethrough')
-  isCode.value = props.editorRef.isFormatActive('code')
-  isLink.value = props.editorRef.isFormatActive('link')
-  isHighlight.value = props.editorRef.isFormatActive('highlight')
+  if (typeof editor.isFormatActive === 'function') {
+    isBold.value = editor.isFormatActive('bold')
+    isItalic.value = editor.isFormatActive('italic')
+    isStrike.value = editor.isFormatActive('strikethrough')
+    isCode.value = editor.isFormatActive('code')
+    isLink.value = editor.isFormatActive('link')
+    isHighlight.value = editor.isFormatActive('highlight')
+  }
 }
 
 function handleFormat(type) {
-  if (!props.editorRef) {
-    return
-  }
+  var editor = getEditor()
+  if (!editor) return
 
   if (type === 'link' && !isLink.value) {
     var url = prompt('请输入链接地址:')
-    if (url) {
-      props.editorRef.format('link', { href: url })
+    if (url && typeof editor.format === 'function') {
+      editor.format('link', { href: url })
     }
-  } else {
-    props.editorRef.format(type)
+  } else if (typeof editor.format === 'function') {
+    editor.format(type)
   }
 
   closeMoreMenu()
@@ -68,19 +87,69 @@ function closeMoreMenu() {
   showMoreMenu.value = false
 }
 
+function saveCurrentSelection() {
+  var selection = window.getSelection()
+  if (selection && selection.rangeCount > 0) {
+    var range = selection.getRangeAt(0)
+    var editorEl = getEditorElement()
+    if (editorEl && editorEl.contains(range.commonAncestorContainer)) {
+      if (!range.collapsed) {
+        savedRange.value = range.cloneRange()
+        return true
+      }
+    }
+  }
+  return false
+}
+
+function normalizeColor(color) {
+  if (!color) return ''
+  color = color.trim()
+  if (color === 'rgba(0, 0, 0, 0)' || color === 'transparent') return ''
+  return color
+}
+
+function getExistingColorsFromSelection() {
+  var result = { textColor: '', backgroundColor: '' }
+
+  if (!savedRange.value) return result
+
+  var container = savedRange.value.commonAncestorContainer
+  var mark = null
+
+  if (container.nodeType === 3) {
+    mark = container.parentElement
+    while (mark && mark.tagName !== 'MARK') {
+      mark = mark.parentElement
+    }
+  } else if (container.nodeType === 1) {
+    if (container.tagName === 'MARK') {
+      mark = container
+    } else {
+      mark = container.querySelector('mark') || container.closest('mark')
+    }
+  }
+
+  if (mark) {
+    var style = mark.style
+    result.textColor = normalizeColor(style.color)
+    result.backgroundColor = normalizeColor(style.backgroundColor)
+  }
+
+  return result
+}
+
 function openHighlightPopover() {
-  if (!props.editorRef) return
-
-  // 获取并保存当前选区
-  var sel = props.editorRef.getSelection()
-
-  if (!sel || sel.start === undefined || sel.end === undefined || sel.start >= sel.end) {
-    alert('请先选中需要高亮的文字')
+  // 尝试保存选区，如果没有选中文字则静默返回（不弹窗提示）
+  if (!saveCurrentSelection()) {
     return
   }
 
-  savedStart.value = sel.start
-  savedEnd.value = sel.end
+  var existing = getExistingColorsFromSelection()
+  initialTextColor.value = existing.textColor
+  initialBgColor.value = existing.backgroundColor
+  textColor.value = existing.textColor
+  backgroundColor.value = existing.backgroundColor
 
   showHighlightPopover.value = true
   showMoreMenu.value = false
@@ -88,68 +157,143 @@ function openHighlightPopover() {
 
 function closeHighlightPopover() {
   showHighlightPopover.value = false
-  savedStart.value = null
-  savedEnd.value = null
+  savedRange.value = null
   textColor.value = ''
   backgroundColor.value = ''
+  initialTextColor.value = ''
+  initialBgColor.value = ''
 }
 
 function handleUpdateTextColor(color) {
   textColor.value = color
-  applyHighlightNow()
 }
 
 function handleUpdateBackgroundColor(color) {
   backgroundColor.value = color
-  applyHighlightNow()
 }
 
-function applyHighlightNow() {
-  if (!props.editorRef) return
-  if (savedStart.value === null || savedEnd.value === null) return
+function handleApplyHighlight() {
+  if (!savedRange.value) return
 
-  var attrs = { class: 'has-inline-color' }
-  var styles = []
+  if (!textColor.value && !backgroundColor.value) {
+    handleClearHighlight()
+    return
+  }
 
-  if (backgroundColor.value) {
-    styles.push('background-color:' + backgroundColor.value)
+  applyHighlightToSelection()
+  closeHighlightPopover()
+}
+
+function applyHighlightToSelection() {
+  if (!savedRange.value) return
+
+  var editorEl = getEditorElement()
+  if (!editorEl) return
+
+  var finalTextColor = textColor.value
+  var finalBgColor = backgroundColor.value
+
+  var styleStr = ''
+  if (finalBgColor) {
+    styleStr += 'background-color:' + finalBgColor + ';'
   } else {
-    styles.push('background-color:rgba(0,0,0,0)')
+    styleStr += 'background-color:rgba(0,0,0,0);'
+  }
+  if (finalTextColor) {
+    styleStr += 'color:' + finalTextColor + ';'
   }
 
-  if (textColor.value) {
-    styles.push('color:' + textColor.value)
+  var selection = window.getSelection()
+  selection.removeAllRanges()
+  selection.addRange(savedRange.value)
+
+  var range = selection.getRangeAt(0)
+  var selectedContent = range.cloneContents()
+
+  var tempDiv = document.createElement('div')
+  tempDiv.appendChild(selectedContent)
+
+  unwrapAllMarks(tempDiv)
+
+  range.deleteContents()
+
+  var mark = document.createElement('mark')
+  mark.style.cssText = styleStr
+  mark.className = 'has-inline-color'
+
+  while (tempDiv.firstChild) {
+    mark.appendChild(tempDiv.firstChild)
   }
 
-  if (styles.length > 0) {
-    attrs.style = styles.join(';')
+  range.insertNode(mark)
+
+  editorEl.normalize()
+  selection.removeAllRanges()
+  editorEl.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+function unwrapAllMarks(container) {
+  var marks = container.querySelectorAll('mark')
+  for (var i = marks.length - 1; i >= 0; i--) {
+    var mark = marks[i]
+    var parent = mark.parentNode
+    while (mark.firstChild) {
+      parent.insertBefore(mark.firstChild, mark)
+    }
+    parent.removeChild(mark)
+  }
+}
+
+function handleClearHighlight() {
+  if (!savedRange.value) {
+    closeHighlightPopover()
+    return
   }
 
-  props.editorRef.applyHighlight(savedStart.value, savedEnd.value, attrs)
+  var editorEl = getEditorElement()
+  if (!editorEl) {
+    closeHighlightPopover()
+    return
+  }
+
+  var selection = window.getSelection()
+  selection.removeAllRanges()
+  selection.addRange(savedRange.value)
+
+  var range = selection.getRangeAt(0)
+
+  var selectedContent = range.cloneContents()
+  var tempDiv = document.createElement('div')
+  tempDiv.appendChild(selectedContent)
+
+  unwrapAllMarks(tempDiv)
+
+  range.deleteContents()
+
+  var fragment = document.createDocumentFragment()
+  while (tempDiv.firstChild) {
+    fragment.appendChild(tempDiv.firstChild)
+  }
+  range.insertNode(fragment)
+
+  editorEl.normalize()
+  selection.removeAllRanges()
+  editorEl.dispatchEvent(new Event('input', { bubbles: true }))
 
   closeHighlightPopover()
 }
 
-function handleClearHighlight(type) {
+function handleClearColorType(type) {
   if (type === 'text') {
     textColor.value = ''
   } else {
     backgroundColor.value = ''
   }
-
-  if (!textColor.value && !backgroundColor.value) {
-    if (props.editorRef && savedStart.value !== null && savedEnd.value !== null) {
-      props.editorRef.removeHighlightFormat(savedStart.value, savedEnd.value)
-      closeHighlightPopover()
-    }
-  }
 }
 
 function insertInlineImage() {
   var url = prompt('请输入图片地址:')
-  if (url && props.editorRef) {
-    // 简单实现：插入 img 标签
-    props.editorRef.syncFromDOM()
+  if (url) {
     var selection = window.getSelection()
     if (selection && selection.rangeCount > 0) {
       var range = selection.getRangeAt(0)
@@ -158,6 +302,11 @@ function insertInlineImage() {
       img.style.maxHeight = '1.5em'
       img.style.verticalAlign = 'middle'
       range.insertNode(img)
+
+      var editorEl = getEditorElement()
+      if (editorEl) {
+        editorEl.dispatchEvent(new Event('input', { bubbles: true }))
+      }
     }
   }
   closeMoreMenu()
@@ -186,7 +335,6 @@ onBeforeUnmount(function () {
 </script>
 
 <template>
-  <!-- 加粗 -->
   <button
     type="button"
     class="format-button"
@@ -197,7 +345,6 @@ onBeforeUnmount(function () {
     <span v-html="getIcon('bold')"></span>
   </button>
 
-  <!-- 斜体 -->
   <button
     type="button"
     class="format-button"
@@ -208,7 +355,6 @@ onBeforeUnmount(function () {
     <span v-html="getIcon('italic')"></span>
   </button>
 
-  <!-- 删除线 -->
   <button
     type="button"
     class="format-button"
@@ -219,7 +365,6 @@ onBeforeUnmount(function () {
     <span v-html="getIcon('strikethrough')"></span>
   </button>
 
-  <!-- 链接 -->
   <button
     type="button"
     class="format-button"
@@ -232,13 +377,13 @@ onBeforeUnmount(function () {
 
   <div class="format-divider"></div>
 
-  <!-- 更多按钮 -->
   <div class="more-menu-wrapper">
     <button
       type="button"
       class="format-button"
       :class="{ 'is-active': showMoreMenu || showHighlightPopover }"
       title="更多格式"
+      @mousedown.prevent
       @click.stop="toggleMoreMenu"
     >
       <svg viewBox="0 0 24 24" width="20" height="20">
@@ -246,12 +391,12 @@ onBeforeUnmount(function () {
       </svg>
     </button>
 
-    <!-- 更多下拉菜单 -->
-    <div v-if="showMoreMenu" class="more-dropdown" @click.stop>
+    <div v-if="showMoreMenu" class="more-dropdown" @mousedown.prevent @click.stop>
       <button
         type="button"
         class="dropdown-item"
         :class="{ 'is-active': isHighlight }"
+        @mousedown.prevent
         @click="openHighlightPopover"
       >
         <span class="dropdown-icon">
@@ -292,7 +437,6 @@ onBeforeUnmount(function () {
       </button>
     </div>
 
-    <!-- 高亮弹窗 -->
     <HighlightPopover
       :visible="showHighlightPopover"
       :text-color="textColor"
@@ -300,7 +444,9 @@ onBeforeUnmount(function () {
       @close="closeHighlightPopover"
       @update:text-color="handleUpdateTextColor"
       @update:background-color="handleUpdateBackgroundColor"
+      @apply="handleApplyHighlight"
       @clear="handleClearHighlight"
+      @clear-type="handleClearColorType"
     />
   </div>
 </template>

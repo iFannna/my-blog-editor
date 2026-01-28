@@ -14,11 +14,13 @@ const emit = defineEmits(['update:attributes'])
 const store = useEditorStore()
 const editorRef = ref(null)
 
+// 保证是响应式对象
 const content = computed({
   get: () => props.attributes.content || '',
   set: (val) => emit('update:attributes', { content: val }),
 })
 
+// H标签变动
 const level = computed({
   get: () => props.attributes.level || 2,
   set: (val) => {
@@ -26,7 +28,6 @@ const level = computed({
     store.commitBlockChanges()
   },
 })
-
 const textAlign = computed({
   get: () => props.attributes.textAlign || 'left',
   set: (val) => {
@@ -34,17 +35,15 @@ const textAlign = computed({
     store.commitBlockChanges()
   },
 })
-
 const tagName = computed(() => 'h' + level.value)
-
 function setLevel(l) {
   level.value = l
 }
-
 function handleChangeComplete() {
   store.commitBlockChanges()
 }
 
+// 保证切换tag时内容不丢
 watch(level, () => {
   nextTick(() => {
     if (editorRef.value && content.value) {
@@ -61,7 +60,7 @@ watch(level, () => {
         v-for="l in [1, 2, 3, 4, 5, 6]"
         :key="l"
         type="button"
-        class="format-button level-button"
+        class="format-button"
         :class="{ 'is-active': level === l }"
         @click="setLevel(l)"
       >
@@ -115,5 +114,3 @@ watch(level, () => {
     />
   </div>
 </template>
-
-<style scoped></style>
