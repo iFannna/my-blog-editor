@@ -268,23 +268,11 @@ function getAlignIcon() {
       <form class="placeholder-form" @submit="onCreateTable">
         <div class="form-field">
           <label class="form-label">列数</label>
-          <input
-            type="number"
-            class="form-input"
-            v-model.number="initialColumnCount"
-            min="1"
-            max="20"
-          />
+          <input type="number" class="form-input" v-model.number="initialColumnCount" min="1" />
         </div>
         <div class="form-field">
           <label class="form-label">行数</label>
-          <input
-            type="number"
-            class="form-input"
-            v-model.number="initialRowCount"
-            min="1"
-            max="20"
-          />
+          <input type="number" class="form-input" v-model.number="initialRowCount" min="1" />
         </div>
         <button type="submit" class="create-button">创建表格</button>
       </form>
@@ -485,6 +473,9 @@ function getAlignIcon() {
   overflow-y: visible !important;
 }
 
+.block-editor-block-content {
+  padding: 0 !important;
+}
 /* ========== 占位符样式 ========== */
 .wp-block-table-placeholder {
   box-sizing: border-box;

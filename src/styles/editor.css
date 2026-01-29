@@ -787,8 +787,9 @@ h6.wp-block-heading {
      块样式 - 图片
      ============================================ */
 .wp-block-image {
-  border: none;
-  border-radius: 3px;
+  border: 1px solid #1e1e1e;
+  border-radius: 2px;
+  padding: 24px;
   box-sizing: border-box;
   min-height: 120px;
   min-width: 320px;

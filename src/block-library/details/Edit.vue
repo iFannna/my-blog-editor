@@ -89,6 +89,7 @@ function toggleOpen() {
 
 .details-content {
   padding: 8px 0 8px 18px;
+  font-size: 500;
 }
 
 .details-content :deep(p) {
