@@ -143,14 +143,37 @@ function insertExample(example) {
       'is-selected': isSelected,
     }"
   >
-    <!-- 工具栏 -->
-    <div v-if="isSelected" class="formula-toolbar">
-      <span class="toolbar-label">示例:</span>
+    <!-- 工具栏-->
+    <div v-if="isSelected" class="block-editor-format-toolbar formula-toolbar">
+      <button
+        type="button"
+        class="format-button"
+        :class="{ 'is-active': displayMode }"
+        title="块级公式（独占一行）"
+        @click="displayMode = true"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M4 5h16v1.5H4V5zm0 5.5h16V12H4v-1.5zm0 5.5h16v1.5H4V16z" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="format-button"
+        :class="{ 'is-active': !displayMode }"
+        title="行内公式"
+        @click="displayMode = false"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M4 11h16v2H4z" fill="currentColor" />
+        </svg>
+      </button>
+      <div class="format-divider"></div>
+      <span class="toolbar-label">示例</span>
       <button
         v-for="ex in examples"
         :key="ex.label"
         type="button"
-        class="example-btn"
+        class="format-button"
         @click="insertExample(ex)"
       >
         {{ ex.label }}
@@ -190,41 +213,14 @@ function insertExample(example) {
 </template>
 
 <style scoped>
-.formula-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e0e0e0;
-  flex-wrap: wrap;
+/* 工具栏标签样式 */
+.formula-toolbar .toolbar-label {
+  font-size: 13px;
+  color: var(--color-gray-600, #757575);
+  margin-right: 4px;
 }
 
-.toolbar-divider {
-  width: 1px;
-  height: 20px;
-  background: #ddd;
-}
-
-.toolbar-label {
-  font-size: 12px;
-  color: #757575;
-}
-
-.example-btn {
-  padding: 2px 8px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  background: #fff;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.example-btn:hover {
-  background: #f0f0f0;
-  border-color: #007cba;
-}
-
+/* 编辑区域 */
 .formula-editor {
   margin-bottom: 12px;
 }
@@ -252,6 +248,7 @@ function insertExample(example) {
   color: #757575;
 }
 
+/* 预览区域 */
 .formula-display {
   cursor: text;
 }
@@ -268,6 +265,7 @@ function insertExample(example) {
   margin: 0;
 }
 
+/* 占位符区域 */
 .formula-placeholder-block {
   display: flex;
   flex-direction: column;
@@ -291,6 +289,7 @@ function insertExample(example) {
   font-size: 13px;
 }
 
+/* 错误提示 */
 .formula-error-message {
   margin-top: 8px;
   padding: 8px;
