@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useEditorStore } from '../../editor/store.js'
+import { getIcon } from '@/icons/index.js'
 
 const props = defineProps({
   attributes: { type: Object, required: true },
@@ -10,6 +11,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:attributes'])
 const store = useEditorStore()
+
+const audioIcon = getIcon('audio')
 const fileInput = ref(null)
 
 const src = computed({
@@ -30,7 +33,7 @@ const caption = computed({
   },
 })
 
-function handleUploadClick() {
+function onUpload() {
   fileInput.value?.click()
 }
 
@@ -44,13 +47,33 @@ function handleFileChange(e) {
     }
     reader.readAsDataURL(file)
   }
+  e.target.value = ''
 }
 
-function handleUrlInput() {
+function onInsertUrl() {
   var url = prompt('请输入音频地址:')
   if (url) {
     src.value = url
     store.commitBlockChanges()
+  }
+}
+
+function onMediaLibrary() {
+  alert('媒体库功能待实现')
+}
+
+function handleDrop(e) {
+  var files = e.dataTransfer.files
+  if (files && files.length > 0) {
+    var file = files[0]
+    if (file.type.startsWith('audio/')) {
+      var reader = new FileReader()
+      reader.onload = function () {
+        src.value = reader.result
+        store.commitBlockChanges()
+      }
+      reader.readAsDataURL(file)
+    }
   }
 }
 
@@ -61,30 +84,40 @@ function handleCaptionChange(e) {
 </script>
 
 <template>
-  <figure class="wp-block-audio">
-    <template v-if="src">
-      <audio controls :src="src"></audio>
-      <input
-        v-if="isSelected"
-        type="text"
-        class="caption-input"
-        placeholder="添加说明…"
-        :value="caption"
-        @change="handleCaptionChange"
-      />
-      <figcaption v-else-if="caption">{{ caption }}</figcaption>
+  <!-- 无音频时：占位符 -->
+  <div
+    v-if="!src"
+    class="wp-block-audio"
+    :class="{ 'has-illustration': !isSelected }"
+    @dragover.prevent
+    @drop.prevent="handleDrop"
+  >
+    <!-- 未选中时：简约占位符（带对角线插图） -->
+    <template v-if="!isSelected">
+      <svg
+        class="placeholder-illustration"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 60 60"
+        preserveAspectRatio="none"
+      >
+        <path vector-effect="non-scaling-stroke" d="M60 60 0 0" />
+      </svg>
     </template>
 
-    <div v-else class="audio-placeholder">
-      <div class="placeholder-content">
-        <span class="placeholder-icon">₰</span>
-        <p>添加音频</p>
-        <div class="placeholder-buttons">
-          <button type="button" @click="handleUploadClick">上传</button>
-          <button type="button" @click="handleUrlInput">输入URL</button>
-        </div>
+    <!-- 选中时：完整交互占位符 -->
+    <template v-else>
+      <div class="header">
+        <span class="icon" v-html="audioIcon"></span>
+        <span>音频</span>
       </div>
-    </div>
+      <div class="tips">拖放音频、上传或从你的库中选择。</div>
+      <div class="button-row">
+        <button class="button" @click.stop="onUpload">上传</button>
+        <button class="button" @click.stop="onMediaLibrary">媒体库</button>
+        <button class="button" @click.stop="onInsertUrl">URL插入</button>
+      </div>
+    </template>
 
     <input
       ref="fileInput"
@@ -93,16 +126,140 @@ function handleCaptionChange(e) {
       style="display: none"
       @change="handleFileChange"
     />
+  </div>
+
+  <!-- 有音频时：显示播放器 -->
+  <figure v-else class="wp-block-audio has-audio">
+    <audio controls :src="src"></audio>
+    <input
+      v-if="isSelected"
+      type="text"
+      class="caption-input"
+      placeholder="添加说明…"
+      :value="caption"
+      @change="handleCaptionChange"
+    />
+    <figcaption v-else-if="caption">{{ caption }}</figcaption>
   </figure>
 </template>
 
 <style scoped>
-.wp-block-audio {
+/* ========== 占位符样式（与图片区块一致） ========== */
+.wp-block-audio:not(.has-audio) {
+  border: 1px solid #1e1e1e;
+  border-radius: 2px;
+  box-sizing: border-box;
+  min-height: 150px;
+  padding: 24px 28px 22px 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+}
+
+.wp-block-audio.has-illustration {
+  border: none;
+  background-color: transparent;
+  padding: 0;
+}
+
+.wp-block-audio.has-illustration::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  background: currentColor;
+  opacity: 0.1;
+  border-radius: 3px;
+}
+
+.placeholder-illustration {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  opacity: 0.25;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #434343;
+  margin-bottom: 8px;
+}
+
+.header .icon {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header .icon :deep(svg) {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+.tips {
+  color: #888;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.button-row {
+  display: flex;
+  gap: 12px;
+}
+
+.button-row .button {
+  font-size: 15px;
+  padding: 7px 18px;
+  border: 1.5px solid #3858e9;
+  background: white;
+  color: #3858e9;
+  border-radius: 3px;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s;
+  min-width: 72px;
+}
+
+.button-row .button:first-child {
+  background: #3858e9;
+  color: white;
+}
+
+.button-row .button:hover {
+  background: #e9f2ff;
+}
+
+.button-row .button:first-child:hover {
+  background: #2145e6;
+}
+
+/* ========== 音频播放器样式 ========== */
+.wp-block-audio.has-audio {
   margin: 0;
 }
+
 .wp-block-audio audio {
   width: 100%;
+  border-radius: 4px;
 }
+
 .caption-input {
   display: block;
   width: 100%;
@@ -112,47 +269,18 @@ function handleCaptionChange(e) {
   border-radius: 4px;
   font-size: 12px;
   text-align: center;
+  box-sizing: border-box;
 }
+
+.caption-input:focus {
+  outline: none;
+  border-color: #3858e9;
+}
+
 .wp-block-audio figcaption {
   margin-top: 8px;
   font-size: 12px;
   color: #757575;
   text-align: center;
-}
-.audio-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 120px;
-  background: #f0f0f0;
-  border: 2px dashed #ccc;
-  border-radius: 4px;
-}
-.placeholder-content {
-  text-align: center;
-  color: #757575;
-}
-.placeholder-icon {
-  font-size: 36px;
-  display: block;
-  margin-bottom: 8px;
-}
-.placeholder-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 8px;
-}
-.placeholder-buttons button {
-  padding: 6px 16px;
-  border: 1px solid #007cba;
-  border-radius: 4px;
-  background: #fff;
-  color: #007cba;
-  cursor: pointer;
-}
-.placeholder-buttons button:hover {
-  background: #007cba;
-  color: #fff;
 }
 </style>
