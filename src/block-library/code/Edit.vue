@@ -819,8 +819,8 @@ onMounted(function () {
 
 .code-textarea {
   width: 100%;
-  min-height: 60px;
-  padding: 12px 16px;
+  min-height: 50px;
+  padding: 24px 16px 0px 16px;
   margin: 0;
   border: none;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;

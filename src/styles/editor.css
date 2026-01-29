@@ -792,7 +792,6 @@ h6.wp-block-heading {
   box-sizing: border-box;
   min-height: 120px;
   min-width: 320px;
-  padding: 24px 28px 22px 28px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1324,8 +1323,6 @@ ol.wp-block-list {
    ============================================ */
 .wp-block-formula {
   padding: 16px;
-  background: #fafafa;
-  border: 1px solid #e0e0e0;
   border-radius: 4px;
 }
 

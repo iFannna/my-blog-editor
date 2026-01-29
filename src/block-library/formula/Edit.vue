@@ -145,11 +145,6 @@ function insertExample(example) {
   >
     <!-- 工具栏 -->
     <div v-if="isSelected" class="formula-toolbar">
-      <label class="toolbar-checkbox">
-        <input type="checkbox" v-model="displayMode" />
-        块级显示
-      </label>
-      <div class="toolbar-divider"></div>
       <span class="toolbar-label">示例:</span>
       <button
         v-for="ex in examples"
@@ -182,7 +177,7 @@ function insertExample(example) {
     <div v-if="!isEditing" class="formula-display" @click="startEdit">
       <div v-if="content" ref="previewRef" class="formula-preview"></div>
       <div v-else class="formula-placeholder-block">
-        <span class="placeholder-icon">√x̄</span>
+        <span class="placeholder-icon">∑</span>
         <span class="placeholder-text">点击输入数学公式</span>
       </div>
     </div>
@@ -195,22 +190,6 @@ function insertExample(example) {
 </template>
 
 <style scoped>
-.wp-block-formula {
-  position: relative;
-  padding: 16px;
-  background: #fafafa;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-}
-
-.wp-block-formula.is-selected {
-  border-color: #007cba;
-}
-
-.wp-block-formula.is-display .formula-preview {
-  text-align: center;
-}
-
 .formula-toolbar {
   display: flex;
   align-items: center;
@@ -219,14 +198,6 @@ function insertExample(example) {
   padding-bottom: 12px;
   border-bottom: 1px solid #e0e0e0;
   flex-wrap: wrap;
-}
-
-.toolbar-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  cursor: pointer;
 }
 
 .toolbar-divider {

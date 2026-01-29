@@ -71,7 +71,6 @@ if (typeof document !== 'undefined') {
   position: relative;
   display: flex;
   justify-content: center;
-  padding: 8px 0;
   opacity: 0;
   transition: opacity 0.15s ease;
 }
