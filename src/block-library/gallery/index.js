@@ -10,14 +10,20 @@ registerBlockType('core/gallery', {
   attributes: {
     images: { type: 'array', default: [] },
     columns: { type: 'number', default: 3 },
+    imageCrop: { type: 'boolean', default: true },
   },
   edit: GalleryEdit,
   save: function (props) {
     var images = props.attributes.images
     var columns = props.attributes.columns
+    var imageCrop = props.attributes.imageCrop
+
     if (!images || images.length === 0) return ''
 
-    var html = '<figure class="wp-block-gallery columns-' + columns + '">'
+    var cropClass = imageCrop !== false ? ' is-cropped' : ''
+    var html =
+      '<figure class="wp-block-gallery has-nested-images columns-' + columns + cropClass + '">'
+
     images.forEach(function (img) {
       html +=
         '<figure class="wp-block-image"><img src="' +
@@ -26,6 +32,7 @@ registerBlockType('core/gallery', {
         (img.alt || '') +
         '" /></figure>'
     })
+
     html += '</figure>'
     return html
   },
