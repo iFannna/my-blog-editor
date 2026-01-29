@@ -220,26 +220,16 @@ function insertExample(example) {
   margin-right: 4px;
 }
 
-/* 编辑区域 */
-.formula-editor {
-  margin-bottom: 12px;
-}
-
 .formula-input {
   width: 100%;
   min-height: 80px;
   padding: 12px;
-  border: 1px solid #007cba;
   border-radius: 4px;
   font-family: monospace;
   font-size: 14px;
   resize: vertical;
   outline: none;
   box-sizing: border-box;
-}
-
-.formula-input:focus {
-  box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.2);
 }
 
 .formula-hint {
