@@ -454,7 +454,7 @@ body {
      ============================================ */
 .block-editor-block-wrapper {
   position: relative;
-  margin-bottom: var(--spacing-20);
+
   border: 2px solid transparent;
   border-radius: var(--radius-medium);
   transition: border-color 0.15s ease;
@@ -620,53 +620,6 @@ body {
   height: 24px;
   background: var(--color-gray-300);
   margin: 0 var(--spacing-05);
-}
-
-/* ============================================
-   块插入器（内容区快速插入）
-   ============================================ */
-.block-editor-inserter {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  padding: var(--spacing-10) 0;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.block-editor-inserter:hover,
-.block-editor-inserter:focus-within,
-.block-editor-inserter.is-open {
-  opacity: 1;
-}
-
-.block-editor-block-list--empty .block-editor-inserter {
-  opacity: 1;
-}
-
-.block-editor-inserter .inserter-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-small);
-  background: none;
-  color: var(--color-gray-900);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.block-editor-inserter .inserter-toggle:hover {
-  background: var(--color-gray-100);
-  color: var(--color-primary);
-}
-
-.block-editor-inserter .inserter-toggle svg {
-  width: 24px;
-  height: 24px;
-  fill: currentColor;
 }
 
 /* 快速插入器面板 - Gutenberg 样式 */
@@ -944,7 +897,6 @@ ol.wp-block-list {
 /* 拖拽占位区域 */
 .block-drop-zone {
   position: relative;
-  min-height: 20px;
   transition: min-height 0.15s ease;
 }
 
@@ -960,11 +912,6 @@ ol.wp-block-list {
   user-select: none;
 }
 
-/* 块插入器在拖拽时隐藏 */
-.block-editor-block-list.is-dragging .block-editor-inserter {
-  opacity: 0;
-  pointer-events: none;
-}
 /* 头部按钮禁用状态 */
 .header-button:disabled {
   opacity: 0.3;

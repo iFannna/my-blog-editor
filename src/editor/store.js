@@ -66,6 +66,25 @@ export const useEditorStore = defineStore('editor', {
 
       this._doSaveHistory()
     },
+    setDraggingFromSidebar: function (isDragging) {
+      if (isDragging) {
+        this.draggingBlockId = 'sidebar' // 特殊标识，表示从侧边栏拖拽
+      } else {
+        this.draggingBlockId = null
+      }
+    },
+    // 设置所有区块
+    setBlocks: function (blocks) {
+      this.blocks = blocks
+      this.saveHistory()
+    },
+
+    // 清空并设置区块（用于代码编辑器同步）
+    replaceBlocks: function (blocks) {
+      this.blocks = blocks
+      this.selectedBlockId = null
+      this.saveHistory()
+    },
 
     // 延迟保存历史记录
     saveHistoryDebounced: function () {

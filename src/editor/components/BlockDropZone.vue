@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useEditorStore } from '../store.js'
 
 const props = defineProps({
@@ -10,125 +10,112 @@ const props = defineProps({
 })
 
 const store = useEditorStore()
-const isActive = ref(false)
+const isHovering = ref(false)
 
-const isVisible = computed(function () {
-  return store.isDragging
-})
-
-// 监听全局拖拽状态，当拖拽结束时清除本地状态
+// 当拖拽结束时重置状态
 watch(
   function () {
-    return store.isDragging
+    return store.draggingBlockId
   },
-  function (dragging) {
-    if (!dragging) {
-      isActive.value = false
+  function (val) {
+    if (!val) {
+      isHovering.value = false
     }
   },
 )
 
 function handleDragOver(e) {
   e.preventDefault()
-  e.dataTransfer.dropEffect = 'move'
-  isActive.value = true
-}
-
-function handleDragEnter(e) {
-  e.preventDefault()
-  isActive.value = true
+  e.stopPropagation()
+  isHovering.value = true
+  store.setDragOverIndex(props.index)
 }
 
 function handleDragLeave(e) {
-  // 检查是否真的离开了元素
-  var rect = e.currentTarget.getBoundingClientRect()
-  var x = e.clientX
-  var y = e.clientY
-
-  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-    isActive.value = false
+  e.preventDefault()
+  isHovering.value = false
+  if (store.dragOverIndex === props.index) {
+    store.setDragOverIndex(null)
   }
 }
 
 function handleDrop(e) {
   e.preventDefault()
+  e.stopPropagation()
 
-  // 检查是否是从侧边栏拖入的新块类型
+  isHovering.value = false
+  store.setDragOverIndex(null)
+
+  // 从侧边栏拖入新区块
   var blockType = e.dataTransfer.getData('application/x-block-type')
   if (blockType) {
     store.insertBlock(blockType, {}, props.index)
-    isActive.value = false
     store.stopDragging()
     return
   }
 
-  // 检查是否是移动现有块
+  // 移动已有区块
   var draggedId = e.dataTransfer.getData('application/x-block-id')
   if (draggedId) {
     store.moveBlockToIndex(draggedId, props.index)
-    isActive.value = false
     store.stopDragging()
-    return
   }
-
-  isActive.value = false
 }
 
-// 全局 dragend 监听
-function handleGlobalDragEnd() {
-  isActive.value = false
+function resetState() {
+  isHovering.value = false
 }
 
 onMounted(function () {
-  document.addEventListener('dragend', handleGlobalDragEnd)
+  document.addEventListener('dragend', resetState)
+  document.addEventListener('drop', resetState)
 })
 
 onBeforeUnmount(function () {
-  document.removeEventListener('dragend', handleGlobalDragEnd)
+  document.removeEventListener('dragend', resetState)
+  document.removeEventListener('drop', resetState)
 })
 </script>
 
 <template>
   <div
-    v-if="isVisible"
     class="block-drop-zone"
-    :class="{ 'is-active': isActive }"
+    :class="{ 'is-hovering': isHovering }"
     @dragover="handleDragOver"
-    @dragenter="handleDragEnter"
     @dragleave="handleDragLeave"
     @drop="handleDrop"
-  >
-    <div v-if="isActive" class="drop-zone-indicator">
-      <span>放置区块</span>
-    </div>
-  </div>
+  ></div>
 </template>
 
 <style scoped>
 .block-drop-zone {
+  height: 8px;
+  margin: 0;
   position: relative;
-  min-height: 8px;
-  margin: 4px 0;
-  transition: all 0.15s ease;
 }
 
-.block-drop-zone.is-active {
-  min-height: 60px;
-  background: rgba(0, 124, 186, 0.08);
-  border: 2px dashed var(--color-primary);
-  border-radius: var(--radius-medium);
-}
-
-.drop-zone-indicator {
+.block-drop-zone.is-hovering::before {
+  content: '';
   position: absolute;
+  left: 0;
+  right: 0;
   top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 8px 16px;
-  background: var(--color-primary);
-  color: white;
-  border-radius: var(--radius-medium);
-  font-size: 12px;
-  white-space: nowrap;
+  height: 4px;
+  background: #3858e9;
+  border-radius: 2px;
+  transform: translateY(-50%);
+}
+
+.block-drop-zone.is-hovering::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  background: #3858e9;
+  border-radius: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  box-shadow: calc(100vw - 100% + 100% - 4px) 0 0 0 #3858e9;
 }
 </style>

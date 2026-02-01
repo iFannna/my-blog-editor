@@ -194,66 +194,6 @@ function updateBlockAttribute(key, value) {
         <div class="panel-section">
           <h3 class="panel-section-title">{{ selectedBlockType.title }} 设置</h3>
 
-          <!-- 段落块设置 -->
-          <template v-if="selectedBlock.name === 'core/paragraph'">
-            <div class="panel-row">
-              <span class="panel-label">字体大小</span>
-              <select
-                class="panel-select"
-                @change="updateBlockAttribute('fontSize', $event.target.value)"
-              >
-                <option value="">默认</option>
-                <option value="small">小</option>
-                <option value="medium">中</option>
-                <option value="large">大</option>
-                <option value="x-large">特大</option>
-              </select>
-            </div>
-          </template>
-
-          <!-- 标题块设置 -->
-          <template v-if="selectedBlock.name === 'core/heading'">
-            <div class="panel-row">
-              <span class="panel-label">级别</span>
-              <select
-                class="panel-select"
-                :value="selectedBlock.attributes.level"
-                @change="updateBlockAttribute('level', Number($event.target.value))"
-              >
-                <option value="1">H1</option>
-                <option value="2">H2</option>
-                <option value="3">H3</option>
-                <option value="4">H4</option>
-                <option value="5">H5</option>
-                <option value="6">H6</option>
-              </select>
-            </div>
-          </template>
-
-          <!-- 图片块设置 -->
-          <template v-if="selectedBlock.name === 'core/image'">
-            <div class="panel-field">
-              <label class="panel-label">替代文本</label>
-              <input
-                type="text"
-                class="panel-input"
-                :value="selectedBlock.attributes.alt"
-                @input="updateBlockAttribute('alt', $event.target.value)"
-                placeholder="描述图片用途"
-              />
-            </div>
-            <div class="panel-field">
-              <label class="panel-label">图片地址</label>
-              <input
-                type="text"
-                class="panel-input"
-                :value="selectedBlock.attributes.url"
-                @input="updateBlockAttribute('url', $event.target.value)"
-                placeholder="输入图片URL"
-              />
-            </div>
-          </template>
-
           <!-- 代码块设置 -->
           <template v-if="selectedBlock.name === 'core/code'">
             <div class="panel-field">
