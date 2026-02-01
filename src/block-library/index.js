@@ -25,9 +25,9 @@ import './mediaText/index.js'
 import './video/index.js'
 
 // 设计类
-import './accordion/index.js'
+// import './accordion/index.js'
 import './button/index.js'
-import './columns/index.js'
-import './grid/index.js'
+// import './columns/index.js'
+// import './grid/index.js'
 import './separator/index.js'
 import './spacer/index.js'
