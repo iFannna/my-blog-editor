@@ -23,6 +23,7 @@ registerBlockType('core/list', {
     var values = props.attributes.values
     if (!values) return ''
     var tag = ordered ? 'ol' : 'ul'
+    // values 已经是包含 <li> 标签和富文本格式的 HTML
     return '<' + tag + ' class="wp-block-list">' + values + '</' + tag + '>'
   },
 })

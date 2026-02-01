@@ -16,6 +16,7 @@ registerBlockType('core/quote', {
     var content = props.attributes.content
     var citation = props.attributes.citation
     if (!content) return ''
+    // content 和 citation 已经包含富文本格式的 HTML
     var html = '<blockquote class="wp-block-quote"><p>' + content + '</p>'
     if (citation) {
       html += '<cite>' + citation + '</cite>'

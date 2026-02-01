@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useEditorStore } from '../../editor/store.js'
+import FormatToolbar from '../../editor/components/FormatToolbar.vue'
 
 const props = defineProps({
   attributes: { type: Object, required: true },
@@ -13,12 +14,34 @@ const store = useEditorStore()
 const listRef = ref(null)
 const isComposing = ref(false)
 
+// 模拟 editorRef 接口供 FormatToolbar 使用
+const editorInterface = ref({
+  $el: null,
+  format: function (type, attrs) {
+    document.execCommand(getExecCommand(type), false, attrs?.href || null)
+    handleInput()
+  },
+  isFormatActive: function (type) {
+    return document.queryCommandState(getExecCommand(type))
+  },
+  syncFromDOM: function () {},
+})
+
+function getExecCommand(type) {
+  const map = {
+    bold: 'bold',
+    italic: 'italic',
+    strikethrough: 'strikeThrough',
+    link: 'createLink',
+  }
+  return map[type] || type
+}
+
 const ordered = computed({
   get: function () {
     return props.attributes.ordered || false
   },
   set: function (val) {
-    // 保存当前内容
     var currentContent = listRef.value ? listRef.value.innerHTML : values.value
     emit('update:attributes', { ordered: val, values: currentContent })
     store.commitBlockChanges()
@@ -53,9 +76,7 @@ function handleCompositionEnd() {
 }
 
 function handleKeyDown(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    // 让浏览器默认创建新 li
-  }
+  // Tab 缩进
   if (e.key === 'Tab') {
     e.preventDefault()
     if (e.shiftKey) {
@@ -63,10 +84,30 @@ function handleKeyDown(e) {
     } else {
       document.execCommand('indent')
     }
+    handleInput()
+  }
+
+  // 快捷键支持
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'b') {
+      e.preventDefault()
+      document.execCommand('bold')
+      handleInput()
+    } else if (e.key === 'i') {
+      e.preventDefault()
+      document.execCommand('italic')
+      handleInput()
+    } else if (e.key === 'k') {
+      e.preventDefault()
+      var url = prompt('请输入链接地址:')
+      if (url) {
+        document.execCommand('createLink', false, url)
+        handleInput()
+      }
+    }
   }
 }
 
-// 确保有初始内容
 function ensureContent() {
   if (listRef.value) {
     var content = values.value
@@ -95,9 +136,11 @@ function ensureContent() {
 
 onMounted(function () {
   ensureContent()
+  if (listRef.value) {
+    editorInterface.value.$el = listRef.value
+  }
 })
 
-// 监听 ordered 变化，重新设置内容
 watch(
   function () {
     return props.attributes.ordered
@@ -106,44 +149,58 @@ watch(
     nextTick(ensureContent)
   },
 )
+
+watch(
+  function () {
+    return props.attributes.values
+  },
+  function (newVal) {
+    if (listRef.value && listRef.value.innerHTML !== newVal) {
+      listRef.value.innerHTML = newVal || '<li></li>'
+    }
+  },
+)
 </script>
 
 <template>
   <div class="list-block-wrapper" :class="{ 'is-selected': isSelected }">
     <!-- 工具栏 -->
-    <div v-if="isSelected" class="list-toolbar">
+    <div v-if="isSelected" class="block-editor-format-toolbar list-toolbar">
       <button
         type="button"
-        class="toolbar-btn"
+        class="format-button"
         :class="{ 'is-active': !ordered }"
         title="无序列表"
         @click="ordered = false"
       >
-        <svg viewBox="0 0 24 24" width="24" height="24">
-          <circle cx="6" cy="8" r="1.5" fill="currentColor" />
-          <circle cx="6" cy="12" r="1.5" fill="currentColor" />
-          <circle cx="6" cy="16" r="1.5" fill="currentColor" />
-          <rect x="10" y="7" width="10" height="2" fill="currentColor" />
-          <rect x="10" y="11" width="10" height="2" fill="currentColor" />
-          <rect x="10" y="15" width="10" height="2" fill="currentColor" />
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <circle cx="5" cy="8" r="1.5" fill="currentColor" />
+          <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+          <circle cx="5" cy="16" r="1.5" fill="currentColor" />
+          <rect x="9" y="7" width="11" height="2" fill="currentColor" />
+          <rect x="9" y="11" width="11" height="2" fill="currentColor" />
+          <rect x="9" y="15" width="11" height="2" fill="currentColor" />
         </svg>
       </button>
       <button
         type="button"
-        class="toolbar-btn"
+        class="format-button"
         :class="{ 'is-active': ordered }"
         title="有序列表"
         @click="ordered = true"
       >
-        <svg viewBox="0 0 24 24" width="24" height="24">
-          <text x="4" y="10" font-size="8" fill="currentColor">1.</text>
-          <text x="4" y="14" font-size="8" fill="currentColor">2.</text>
-          <text x="4" y="18" font-size="8" fill="currentColor">3.</text>
-          <rect x="12" y="7" width="8" height="2" fill="currentColor" />
-          <rect x="12" y="11" width="8" height="2" fill="currentColor" />
-          <rect x="12" y="15" width="8" height="2" fill="currentColor" />
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <text x="3" y="9" font-size="6" fill="currentColor">1.</text>
+          <text x="3" y="13" font-size="6" fill="currentColor">2.</text>
+          <text x="3" y="17" font-size="6" fill="currentColor">3.</text>
+          <rect x="11" y="7" width="9" height="2" fill="currentColor" />
+          <rect x="11" y="11" width="9" height="2" fill="currentColor" />
+          <rect x="11" y="15" width="9" height="2" fill="currentColor" />
         </svg>
       </button>
+      <div class="format-divider"></div>
+      <!-- 富文本格式工具栏 -->
+      <FormatToolbar :editor-ref="editorInterface" />
     </div>
 
     <!-- 列表内容 -->
@@ -178,34 +235,7 @@ watch(
 }
 
 .list-toolbar {
-  display: flex;
-  gap: 4px;
   margin-bottom: 8px;
-  padding: 8px;
-  background: #f0f0f0;
-  border-radius: 4px;
-}
-
-.toolbar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: #fff;
-  color: #1e1e1e;
-  cursor: pointer;
-}
-
-.toolbar-btn:hover {
-  background: #e0e0e0;
-}
-
-.toolbar-btn.is-active {
-  background: #1e1e1e;
-  color: #fff;
 }
 
 .list-content {
@@ -254,6 +284,38 @@ watch(
 .wp-block-list :deep(ul ul),
 .wp-block-list :deep(ol ol) {
   list-style-type: square !important;
+}
+
+/* 富文本格式 */
+.wp-block-list :deep(strong),
+.wp-block-list :deep(b) {
+  font-weight: bold;
+}
+
+.wp-block-list :deep(em),
+.wp-block-list :deep(i) {
+  font-style: italic;
+}
+
+.wp-block-list :deep(s),
+.wp-block-list :deep(del) {
+  text-decoration: line-through;
+}
+
+.wp-block-list :deep(code) {
+  font-family: monospace;
+  background: #f0f0f0;
+  padding: 0.1em 0.3em;
+  border-radius: 2px;
+}
+
+.wp-block-list :deep(a) {
+  color: #3858e9;
+  text-decoration: underline;
+}
+
+.wp-block-list :deep(mark) {
+  padding: 0.1em 0;
 }
 
 /* 空列表占位 */

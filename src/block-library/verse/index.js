@@ -14,6 +14,7 @@ registerBlockType('core/verse', {
   save: function (props) {
     var content = props.attributes.content
     if (!content) return ''
+    // content 已经包含富文本格式的 HTML
     return '<pre class="wp-block-verse">' + content + '</pre>'
   },
 })

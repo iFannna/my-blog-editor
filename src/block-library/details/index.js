@@ -15,6 +15,7 @@ registerBlockType('core/details', {
   save: function (props) {
     var summary = props.attributes.summary
     var content = props.attributes.content
+    // summary 和 content 已经包含富文本格式的 HTML
     return (
       '<details class="wp-block-details"><summary>' +
       summary +
