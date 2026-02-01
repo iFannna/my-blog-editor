@@ -168,6 +168,52 @@ export function useRichText(options) {
     }
   }
 
+  // 新增：处理粘贴事件
+  function handlePaste(e) {
+    e.preventDefault()
+
+    var clipboardData = e.clipboardData || window.clipboardData
+    if (!clipboardData) return
+
+    // 优先获取纯文本，避免粘贴不安全的 HTML
+    var text = clipboardData.getData('text/plain')
+    if (!text) return
+
+    // 获取当前选区
+    var selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) return
+
+    var range = selection.getRangeAt(0)
+
+    // 删除选中的内容
+    range.deleteContents()
+
+    // 插入纯文本（将换行符转换为 <br>）
+    var lines = text.split('\n')
+    for (var i = 0; i < lines.length; i++) {
+      if (i > 0) {
+        range.insertNode(document.createElement('br'))
+        range.collapse(false)
+      }
+      var textNode = document.createTextNode(lines[i])
+      range.insertNode(textNode)
+      range.setStartAfter(textNode)
+      range.setEndAfter(textNode)
+    }
+
+    // 折叠选区到末尾
+    selection.removeAllRanges()
+    selection.addRange(range)
+
+    // 同步到富文本值
+    syncFromDOM()
+    onChange(toHtmlString({ value: richTextValue.value }))
+
+    if (onChangeComplete) {
+      onChangeComplete()
+    }
+  }
+
   function handleKeyDown(e) {
     var isMod = e.metaKey || e.ctrlKey
 
@@ -210,6 +256,7 @@ export function useRichText(options) {
       editorRef.value.addEventListener('keydown', handleKeyDown)
       editorRef.value.addEventListener('compositionstart', handleCompositionStart)
       editorRef.value.addEventListener('compositionend', handleCompositionEnd)
+      editorRef.value.addEventListener('paste', handlePaste) // 新增
     }
   })
 
@@ -219,6 +266,7 @@ export function useRichText(options) {
       editorRef.value.removeEventListener('keydown', handleKeyDown)
       editorRef.value.removeEventListener('compositionstart', handleCompositionStart)
       editorRef.value.removeEventListener('compositionend', handleCompositionEnd)
+      editorRef.value.removeEventListener('paste', handlePaste) // 新增
     }
   })
 

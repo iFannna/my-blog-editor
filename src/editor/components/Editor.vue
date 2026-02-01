@@ -93,7 +93,8 @@ function parseBlocksFromHtml(html) {
   var result = []
 
   // 匹配成对的 WordPress 块注释
-  var pairedRegex = /<!-- wp:(\w+)(?:\s+(\{[^]*?\}))?\s*-->([\s\S]*?)<!-- \/wp:\1 -->/g
+  // 修改：将 \w+ 改为 [\w-]+ 以支持带连字符的块名称如 media-text
+  var pairedRegex = /<!-- wp:([\w-]+)(?:\s+(\{[^]*?\}))?\s*-->([\s\S]*?)<!-- \/wp:\1 -->/g
   var pairedMatch
 
   while ((pairedMatch = pairedRegex.exec(html)) !== null) {
@@ -124,7 +125,8 @@ function parseBlocksFromHtml(html) {
   }
 
   // 匹配自闭合的 WordPress 块注释
-  var selfClosingRegex = /<!-- wp:(\w+)(?:\s+(\{[^]*?\}))?\s*\/-->/g
+  // 修改：将 \w+ 改为 [\w-]+ 以支持带连字符的块名称
+  var selfClosingRegex = /<!-- wp:([\w-]+)(?:\s+(\{[^]*?\}))?\s*\/-->/g
   var selfMatch
 
   while ((selfMatch = selfClosingRegex.exec(html)) !== null) {
@@ -334,6 +336,59 @@ function extractBlockContent(blockName, innerHtml, attributes) {
         }
       }
       break
+
+    // 新增：媒体与文本区块解析
+    case 'core/media-text':
+      // 提取媒体位置
+      if (innerHtml.indexOf('has-media-on-the-right') !== -1) {
+        attributes.mediaPosition = 'right'
+      } else {
+        attributes.mediaPosition = 'left'
+      }
+
+      // 提取媒体 URL（图片）
+      var mediaImgMatch = innerHtml.match(/<figure[^>]*>[\s\S]*?<img[^>]+src=["']([^"']+)["']/i)
+      if (!mediaImgMatch) {
+        // 尝试直接匹配 img 标签
+        mediaImgMatch = innerHtml.match(/<img[^>]+src=["']([^"']+)["']/i)
+      }
+      if (mediaImgMatch) {
+        attributes.mediaUrl = mediaImgMatch[1]
+        attributes.mediaType = 'image'
+      } else {
+        // 提取媒体 URL（视频）
+        var mediaVideoMatch = innerHtml.match(/<video[^>]+src=["']([^"']+)["']/i)
+        if (mediaVideoMatch) {
+          attributes.mediaUrl = mediaVideoMatch[1]
+          attributes.mediaType = 'video'
+        }
+      }
+
+      // 提取 alt 属性
+      var mediaAltMatch = innerHtml.match(/<img[^>]+alt=["']([^"']*)["']/i)
+      if (mediaAltMatch) {
+        attributes.mediaAlt = mediaAltMatch[1]
+      }
+
+      // 提取内容区域
+      var contentMatch = innerHtml.match(
+        /<div[^>]*class=["'][^"']*wp-block-media-text__content[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      )
+      if (contentMatch) {
+        // 内容可能包含子块注释，需要过滤掉
+        var contentHtml = contentMatch[1]
+        // 移除 WordPress 块注释
+        contentHtml = contentHtml.replace(/<!--[\s\S]*?-->/g, '')
+        // 提取纯内容（可能是 <p> 标签包裹）
+        var contentPMatch = contentHtml.match(/<p[^>]*>([\s\S]*?)<\/p>/i)
+        if (contentPMatch) {
+          attributes.content = contentPMatch[1]
+        } else {
+          // 直接使用内容（去除首尾空白）
+          attributes.content = contentHtml.trim()
+        }
+      }
+      break
   }
 }
 
@@ -407,7 +462,7 @@ function handleCloseShortcuts() {
   showShortcutsModal.value = false
 }
 
-// 复制所有方块
+// 复制所��方块
 function handleCopyAllBlocks() {
   var html = serialize(store.blocks)
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -569,10 +624,6 @@ onBeforeUnmount(function () {
               <BlockWrapper :block="block" :index="index" />
               <BlockDropZone :index="index + 1" />
             </template>
-
-            <div v-if="isEmpty" class="empty-state">
-              <p>从左侧拖入区块，或点击左侧区块添加</p>
-            </div>
           </div>
         </div>
       </div>
@@ -603,13 +654,6 @@ onBeforeUnmount(function () {
 
 .editor-title-input::placeholder {
   color: #949494;
-}
-
-.empty-state {
-  padding: 40px;
-  text-align: center;
-  color: #757575;
-  font-size: 14px;
 }
 
 /* 代码编辑器 */

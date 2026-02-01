@@ -1,46 +1,41 @@
-/**
- * Pinia 状态管理 - 含历史记录
- */
-
 import { defineStore } from 'pinia'
-import { createBlock, getBlockType } from '../blocks/index.js'
-
-var MAX_HISTORY = 50
-
-// 防抖定时器
-var saveHistoryTimer = null
-var DEBOUNCE_DELAY = 500
+import { getBlockType, createBlock } from '../blocks/index.js'
 
 export const useEditorStore = defineStore('editor', {
   state: function () {
     return {
       blocks: [],
       selectedBlockId: null,
-      draggingBlockId: null,
-      dragOverIndex: null,
       history: [],
       historyIndex: -1,
-      isHistoryAction: false,
+      maxHistory: 50,
+      draggingBlockId: null,
+      dragOverIndex: null,
     }
   },
 
   getters: {
-    selectedBlock: function (state) {
-      return state.blocks.find(function (b) {
-        return b.clientId === state.selectedBlockId
-      })
-    },
-
     isEmpty: function (state) {
-      return state.blocks.length === 0
+      if (state.blocks.length === 0) return true
+      if (state.blocks.length === 1) {
+        var block = state.blocks[0]
+        if (block.name === 'core/paragraph') {
+          var content = block.attributes.content || ''
+          return !content || content === '<br>' || content.replace(/<[^>]+>/g, '').trim() === ''
+        }
+      }
+      return false
     },
 
     blocksCount: function (state) {
       return state.blocks.length
     },
 
-    isDragging: function (state) {
-      return state.draggingBlockId !== null
+    selectedBlock: function (state) {
+      if (!state.selectedBlockId) return null
+      return state.blocks.find(function (b) {
+        return b.clientId === state.selectedBlockId
+      })
     },
 
     canUndo: function (state) {
@@ -53,110 +48,52 @@ export const useEditorStore = defineStore('editor', {
   },
 
   actions: {
-    // 立即保存历史记录
-    saveHistory: function () {
-      if (this.isHistoryAction) {
-        return
-      }
-
-      if (saveHistoryTimer) {
-        clearTimeout(saveHistoryTimer)
-        saveHistoryTimer = null
-      }
-
-      this._doSaveHistory()
-    },
-    setDraggingFromSidebar: function (isDragging) {
-      if (isDragging) {
-        this.draggingBlockId = 'sidebar' // 特殊标识，表示从侧边栏拖拽
-      } else {
-        this.draggingBlockId = null
-      }
-    },
-    // 设置所有区块
-    setBlocks: function (blocks) {
-      this.blocks = blocks
-      this.saveHistory()
+    selectBlock: function (clientId) {
+      this.selectedBlockId = clientId
     },
 
-    // 清空并设置区块（用于代码编辑器同步）
-    replaceBlocks: function (blocks) {
-      this.blocks = blocks
+    clearSelection: function () {
       this.selectedBlockId = null
-      this.saveHistory()
     },
 
-    // 延迟保存历史记录
-    saveHistoryDebounced: function () {
-      var self = this
+    // ========== 历史记录 ==========
 
-      if (this.isHistoryAction) {
-        return
-      }
+    saveHistory: function () {
+      var snapshot = JSON.stringify(this.blocks)
 
-      if (saveHistoryTimer) {
-        clearTimeout(saveHistoryTimer)
-      }
-
-      saveHistoryTimer = setTimeout(function () {
-        self._doSaveHistory()
-        saveHistoryTimer = null
-      }, DEBOUNCE_DELAY)
-    },
-
-    // 实际保存历史
-    _doSaveHistory: function () {
       if (this.historyIndex < this.history.length - 1) {
         this.history = this.history.slice(0, this.historyIndex + 1)
       }
 
-      var snapshot = JSON.stringify(this.blocks)
-
-      if (this.history.length > 0 && this.history[this.history.length - 1] === snapshot) {
-        return
-      }
-
       this.history.push(snapshot)
 
-      if (this.history.length > MAX_HISTORY) {
+      if (this.history.length > this.maxHistory) {
         this.history.shift()
       } else {
-        this.historyIndex = this.history.length - 1
+        this.historyIndex++
       }
     },
 
     undo: function () {
-      if (!this.canUndo) {
-        return
+      if (this.historyIndex > 0) {
+        this.historyIndex--
+        var snapshot = this.history[this.historyIndex]
+        this.blocks = JSON.parse(snapshot)
+        this.selectedBlockId = null
       }
-
-      if (saveHistoryTimer) {
-        clearTimeout(saveHistoryTimer)
-        saveHistoryTimer = null
-      }
-
-      this.isHistoryAction = true
-      this.historyIndex--
-      this.blocks = JSON.parse(this.history[this.historyIndex])
-      this.selectedBlockId = null
-      this.isHistoryAction = false
     },
 
     redo: function () {
-      if (!this.canRedo) {
-        return
+      if (this.historyIndex < this.history.length - 1) {
+        this.historyIndex++
+        var snapshot = this.history[this.historyIndex]
+        this.blocks = JSON.parse(snapshot)
+        this.selectedBlockId = null
       }
+    },
 
-      if (saveHistoryTimer) {
-        clearTimeout(saveHistoryTimer)
-        saveHistoryTimer = null
-      }
-
-      this.isHistoryAction = true
-      this.historyIndex++
-      this.blocks = JSON.parse(this.history[this.historyIndex])
-      this.selectedBlockId = null
-      this.isHistoryAction = false
+    commitBlockChanges: function () {
+      this.saveHistory()
     },
 
     initHistory: function () {
@@ -193,12 +130,8 @@ export const useEditorStore = defineStore('editor', {
         return b.clientId === clientId
       })
       if (block) {
-        block.attributes = Object.assign({}, block.attributes, attributes)
+        Object.assign(block.attributes, attributes)
       }
-    },
-
-    commitBlockChanges: function () {
-      this.saveHistory()
     },
 
     removeBlock: function (clientId) {
@@ -207,7 +140,9 @@ export const useEditorStore = defineStore('editor', {
       })
       if (index !== -1) {
         this.blocks.splice(index, 1)
-        this.selectedBlockId = null
+        if (this.selectedBlockId === clientId) {
+          this.selectedBlockId = null
+        }
         this.saveHistory()
       }
     },
@@ -216,52 +151,50 @@ export const useEditorStore = defineStore('editor', {
       var index = this.blocks.findIndex(function (b) {
         return b.clientId === clientId
       })
+      if (index === -1) return
+
       var newIndex = direction === 'up' ? index - 1 : index + 1
 
-      if (newIndex >= 0 && newIndex < this.blocks.length) {
-        var block = this.blocks.splice(index, 1)[0]
-        this.blocks.splice(newIndex, 0, block)
-        this.saveHistory()
-      }
-    },
+      if (newIndex < 0 || newIndex >= this.blocks.length) return
 
-    moveBlockByIndex: function (fromIndex, toIndex) {
-      if (fromIndex === toIndex) {
-        return
-      }
-      if (fromIndex < 0 || fromIndex >= this.blocks.length) {
-        return
-      }
-      if (toIndex < 0 || toIndex > this.blocks.length) {
-        return
-      }
-
-      var block = this.blocks.splice(fromIndex, 1)[0]
-      var adjustedIndex = toIndex > fromIndex ? toIndex - 1 : toIndex
-      this.blocks.splice(adjustedIndex, 0, block)
-      this.selectedBlockId = block.clientId
+      var temp = this.blocks[index]
+      this.blocks[index] = this.blocks[newIndex]
+      this.blocks[newIndex] = temp
       this.saveHistory()
     },
 
-    moveBlockToIndex: function (clientId, toIndex) {
-      var fromIndex = this.blocks.findIndex(function (b) {
+    moveBlockToIndex: function (clientId, newIndex) {
+      var oldIndex = this.blocks.findIndex(function (b) {
         return b.clientId === clientId
       })
+      if (oldIndex === -1) return
+      if (oldIndex === newIndex) return
 
-      if (fromIndex === -1) {
-        return
+      var block = this.blocks.splice(oldIndex, 1)[0]
+
+      if (newIndex > oldIndex) {
+        newIndex--
       }
 
-      this.moveBlockByIndex(fromIndex, toIndex)
+      this.blocks.splice(newIndex, 0, block)
+      this.saveHistory()
     },
 
-    selectBlock: function (clientId) {
-      this.selectedBlockId = clientId
+    duplicateBlock: function (clientId) {
+      var index = this.blocks.findIndex(function (b) {
+        return b.clientId === clientId
+      })
+      if (index === -1) return
+
+      var block = this.blocks[index]
+      var newBlock = createBlock(block.name, JSON.parse(JSON.stringify(block.attributes)))
+
+      this.blocks.splice(index + 1, 0, newBlock)
+      this.selectedBlockId = newBlock.clientId
+      this.saveHistory()
     },
 
-    clearSelection: function () {
-      this.selectedBlockId = null
-    },
+    // ========== 拖拽 ==========
 
     startDragging: function (clientId) {
       this.draggingBlockId = clientId
@@ -333,7 +266,8 @@ export const useEditorStore = defineStore('editor', {
       }
 
       // 匹配 WordPress 块注释
-      var regex = /<!-- wp:(\w+)(?:\s+(\{[\s\S]*?\}))?\s*-->\s*([\s\S]*?)\s*<!-- \/wp:\1 -->/
+      // 修改：将 \w+ 改为 [\w-]+ 以支持带连字符的块名称如 media-text
+      var regex = /<!-- wp:([\w-]+)(?:\s+(\{[\s\S]*?\}))?\s*-->\s*([\s\S]*?)\s*<!-- \/wp:\1 -->/
       var match = html.trim().match(regex)
 
       if (!match) {
