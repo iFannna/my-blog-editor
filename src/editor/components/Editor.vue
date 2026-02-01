@@ -88,7 +88,7 @@ function decodeHtmlEntities(text) {
   return textarea.value
 }
 
-// 从 HTML 解析区块并提取属性
+// 从 HTML 解析区块
 function parseBlocksFromHtml(html) {
   var result = []
 
@@ -108,13 +108,11 @@ function parseBlocksFromHtml(html) {
       attributes = {}
     }
 
-    // 检查区块类型是否存在
     var blockType = getBlockType(blockName)
     if (!blockType) {
       continue
     }
 
-    // 根据区块类型提取内容
     extractBlockContent(blockName, innerContent, attributes)
 
     try {
@@ -162,7 +160,6 @@ function extractBlockContent(blockName, innerHtml, attributes) {
 
   switch (blockName) {
     case 'core/paragraph':
-      // 提取 <p> 标签内容
       match = innerHtml.match(/<p[^>]*>([\s\S]*?)<\/p>/i)
       if (match) {
         attributes.content = match[1]
@@ -170,7 +167,6 @@ function extractBlockContent(blockName, innerHtml, attributes) {
       break
 
     case 'core/heading':
-      // 提取 <h1>-<h6> 标签内容和级别
       match = innerHtml.match(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/i)
       if (match) {
         attributes.level = parseInt(match[1], 10)
@@ -179,16 +175,13 @@ function extractBlockContent(blockName, innerHtml, attributes) {
       break
 
     case 'core/quote':
-      // 提取引用内容和来源
       var quoteMatch = innerHtml.match(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/i)
       if (quoteMatch) {
         var quoteInner = quoteMatch[1]
-        // 提取 <p> 内容
         var pMatch = quoteInner.match(/<p[^>]*>([\s\S]*?)<\/p>/i)
         if (pMatch) {
           attributes.content = pMatch[1]
         }
-        // 提取 <cite> 内容
         var citeMatch = quoteInner.match(/<cite[^>]*>([\s\S]*?)<\/cite>/i)
         if (citeMatch) {
           attributes.citation = citeMatch[1]
@@ -197,17 +190,14 @@ function extractBlockContent(blockName, innerHtml, attributes) {
       break
 
     case 'core/code':
-      // 提取代码内容（需要解码 HTML 实体）
       match = innerHtml.match(/<code[^>]*>([\s\S]*?)<\/code>/i)
       if (match) {
         attributes.content = decodeHtmlEntities(match[1])
       }
-      // 提取语言
       var langMatch = innerHtml.match(/language-(\w+)/i)
       if (langMatch) {
         attributes.language = langMatch[1]
       }
-      // 提取主题
       if (innerHtml.indexOf('is-light') !== -1) {
         attributes.theme = 'light'
       } else if (innerHtml.indexOf('is-dark') !== -1) {
@@ -216,10 +206,8 @@ function extractBlockContent(blockName, innerHtml, attributes) {
       break
 
     case 'core/list':
-      // 提取列表类型和内容
       var isOrdered = /<ol[^>]*>/i.test(innerHtml)
       attributes.ordered = isOrdered
-      // 提取所有 <li> 内容
       var listMatch = innerHtml.match(/<[ou]l[^>]*>([\s\S]*?)<\/[ou]l>/i)
       if (listMatch) {
         attributes.values = listMatch[1].trim()
@@ -227,7 +215,6 @@ function extractBlockContent(blockName, innerHtml, attributes) {
       break
 
     case 'core/verse':
-      // 提取诗歌内容
       match = innerHtml.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i)
       if (match) {
         attributes.content = match[1]
@@ -235,13 +222,11 @@ function extractBlockContent(blockName, innerHtml, attributes) {
       break
 
     case 'core/button':
-      // 提取按钮文字和链接
       match = innerHtml.match(/<a[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/i)
       if (match) {
         attributes.url = match[1]
         attributes.text = match[2]
       } else {
-        // 没有 href 的情况
         var textMatch = innerHtml.match(/<a[^>]*>([\s\S]*?)<\/a>/i)
         if (textMatch) {
           attributes.text = textMatch[1]
@@ -251,34 +236,55 @@ function extractBlockContent(blockName, innerHtml, attributes) {
 
     case 'core/cover':
       // 提取封面标题
-      var titleMatch = innerHtml.match(/<p[^>]*>([\s\S]*?)<\/p>/i)
-      if (titleMatch) {
-        attributes.title = titleMatch[1]
+      var coverPMatch = innerHtml.match(/<p[^>]*>([\s\S]*?)<\/p>/i)
+      if (coverPMatch) {
+        attributes.title = coverPMatch[1]
       }
-      // 提取背景图片
-      var bgImgMatch = innerHtml.match(/background-image:\s*url\(["']?([^"')]+)["']?\)/i)
-      if (bgImgMatch) {
-        attributes.url = bgImgMatch[1]
+
+      // 提取文本对齐
+      var alignMatch = innerHtml.match(/has-text-align-(\w+)/i)
+      if (alignMatch) {
+        attributes.textAlign = alignMatch[1]
       }
-      // 提取背景颜色（从 style 或内联样式）
-      var bgColorMatch = innerHtml.match(/background(?:-color)?:\s*([#\w]+(?:\([^)]+\))?)/i)
-      if (bgColorMatch && !bgImgMatch) {
-        attributes.backgroundColor = bgColorMatch[1]
+
+      // 从 style 属性中提取样式
+      var coverDivMatch = innerHtml.match(
+        /<div[^>]*style=["']([^"']+)["'][^>]*class=["'][^"']*wp-block-cover/i,
+      )
+      if (!coverDivMatch) {
+        coverDivMatch = innerHtml.match(
+          /<div[^>]*class=["'][^"']*wp-block-cover[^"']*["'][^>]*style=["']([^"']+)["']/i,
+        )
+      }
+      if (coverDivMatch) {
+        var coverStyleStr = coverDivMatch[1]
+
+        var coverBgImgMatch = coverStyleStr.match(/background-image:\s*url\(["']?([^"')]+)["']?\)/i)
+        if (coverBgImgMatch) {
+          attributes.url = coverBgImgMatch[1]
+        }
+
+        var coverBgColorMatch = coverStyleStr.match(/background-color:\s*([^;]+)/i)
+        if (coverBgColorMatch) {
+          attributes.backgroundColor = coverBgColorMatch[1].trim()
+        }
+
+        var coverHeightMatch = coverStyleStr.match(/min-height:\s*(\d+)px/i)
+        if (coverHeightMatch) {
+          attributes.minHeight = parseInt(coverHeightMatch[1], 10)
+        }
       }
       break
 
     case 'core/image':
-      // 提取图片 URL
       var imgMatch = innerHtml.match(/<img[^>]+src=["']([^"']+)["']/i)
       if (imgMatch) {
         attributes.url = imgMatch[1]
       }
-      // 提取 alt
       var altMatch = innerHtml.match(/<img[^>]+alt=["']([^"']*)["']/i)
       if (altMatch) {
         attributes.alt = altMatch[1]
       }
-      // 提取 caption
       var captionMatch = innerHtml.match(/<figcaption[^>]*>([\s\S]*?)<\/figcaption>/i)
       if (captionMatch) {
         attributes.caption = captionMatch[1]
@@ -286,7 +292,6 @@ function extractBlockContent(blockName, innerHtml, attributes) {
       break
 
     case 'core/video':
-      // 提取视频 URL
       var videoMatch = innerHtml.match(/<video[^>]+src=["']([^"']+)["']/i)
       if (!videoMatch) {
         videoMatch = innerHtml.match(/<source[^>]+src=["']([^"']+)["']/i)
@@ -297,7 +302,6 @@ function extractBlockContent(blockName, innerHtml, attributes) {
       break
 
     case 'core/audio':
-      // 提取音频 URL
       var audioMatch = innerHtml.match(/<audio[^>]+src=["']([^"']+)["']/i)
       if (!audioMatch) {
         audioMatch = innerHtml.match(/<source[^>]+src=["']([^"']+)["']/i)
@@ -308,7 +312,6 @@ function extractBlockContent(blockName, innerHtml, attributes) {
       break
 
     case 'core/separator':
-      // 提取分隔符样式
       if (innerHtml.indexOf('is-style-wide') !== -1) {
         attributes.style = 'wide'
       } else if (innerHtml.indexOf('is-style-dots') !== -1) {
@@ -319,15 +322,12 @@ function extractBlockContent(blockName, innerHtml, attributes) {
       break
 
     case 'core/table':
-      // 提取表格内容（保留完整 HTML）
       var tableMatch = innerHtml.match(/<table[^>]*>([\s\S]*?)<\/table>/i)
       if (tableMatch) {
-        // 提取表头
         var theadMatch = tableMatch[1].match(/<thead[^>]*>([\s\S]*?)<\/thead>/i)
         if (theadMatch) {
           attributes.head = extractTableRows(theadMatch[1])
         }
-        // 提取表体
         var tbodyMatch = tableMatch[1].match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/i)
         if (tbodyMatch) {
           attributes.body = extractTableRows(tbodyMatch[1])
