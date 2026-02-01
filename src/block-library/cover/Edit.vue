@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useEditorStore } from '../../editor/store.js'
 import { getIcon } from '@/icons/index.js'
 import RichTextEditor from '../../editor/components/RichTextEditor.vue'
+import FormatToolbar from '../../editor/components/FormatToolbar.vue'
 
 const props = defineProps({
   attributes: { type: Object, required: true },
@@ -15,6 +16,17 @@ const store = useEditorStore()
 
 const coverIcon = getIcon('cover')
 const fileInput = ref(null)
+const editorRef = ref(null)
+const coverRef = ref(null)
+
+// 缩放相关
+const isResizing = ref(false)
+const startY = ref(0)
+const startHeight = ref(0)
+const currentHeight = ref(300)
+
+const MIN_HEIGHT = 100
+const MAX_HEIGHT = 800
 
 // 预设颜色列表
 const presetColors = [
@@ -46,15 +58,6 @@ const url = computed({
   },
 })
 
-const overlayColor = computed({
-  get: function () {
-    return props.attributes.overlayColor || 'rgba(0,0,0,0.5)'
-  },
-  set: function (val) {
-    emit('update:attributes', { overlayColor: val })
-  },
-})
-
 const backgroundColor = computed({
   get: function () {
     return props.attributes.backgroundColor || ''
@@ -79,6 +82,15 @@ const minHeight = computed({
   },
   set: function (val) {
     emit('update:attributes', { minHeight: val })
+  },
+})
+
+const textAlign = computed({
+  get: function () {
+    return props.attributes.textAlign || 'center'
+  },
+  set: function (val) {
+    emit('update:attributes', { textAlign: val })
     store.commitBlockChanges()
   },
 })
@@ -88,14 +100,25 @@ const hasBackground = computed(function () {
   return url.value || backgroundColor.value
 })
 
+// 封面样式 - 直接使用背景，无蒙版
 const coverStyle = computed(function () {
   var style = { minHeight: minHeight.value + 'px' }
   if (url.value) {
     style.backgroundImage = 'url(' + url.value + ')'
+    style.backgroundColor = '#1e1e1e'
   } else if (backgroundColor.value) {
     style.backgroundColor = backgroundColor.value
   }
   return style
+})
+
+// 判断是否使用深色文字（浅色背景时）
+const useDarkText = computed(function () {
+  if (url.value) return false
+  if (!backgroundColor.value) return false
+
+  var lightColors = ['#e0e0e0', '#cfcfcf', '#ffffff', '#ffc0cb', '#c5e1a5', '#90caf9', '#ffb300']
+  return lightColors.indexOf(backgroundColor.value) !== -1
 })
 
 function onUpload() {
@@ -149,89 +172,231 @@ function selectColor(color) {
 function handleChangeComplete() {
   store.commitBlockChanges()
 }
-function removeBackground() {
+
+// 更换背景（保留文本，回到选择背景状态）
+function replaceBackground() {
   url.value = ''
   backgroundColor.value = ''
   store.commitBlockChanges()
 }
+
+// 开始拖拽调整高度
+function onResizeStart(e) {
+  e.preventDefault()
+  e.stopPropagation()
+  isResizing.value = true
+  startY.value = e.clientY
+  startHeight.value = minHeight.value
+  currentHeight.value = minHeight.value
+
+  document.addEventListener('mousemove', onResizeMove)
+  document.addEventListener('mouseup', onResizeEnd)
+}
+
+function onResizeMove(e) {
+  if (!isResizing.value) return
+
+  var deltaY = e.clientY - startY.value
+  var newHeight = startHeight.value + deltaY
+
+  if (newHeight < MIN_HEIGHT) newHeight = MIN_HEIGHT
+  if (newHeight > MAX_HEIGHT) newHeight = MAX_HEIGHT
+
+  currentHeight.value = newHeight
+  emit('update:attributes', { minHeight: newHeight })
+}
+
+function onResizeEnd() {
+  if (isResizing.value) {
+    isResizing.value = false
+    store.commitBlockChanges()
+  }
+
+  document.removeEventListener('mousemove', onResizeMove)
+  document.removeEventListener('mouseup', onResizeEnd)
+}
+
+// 获取封面宽度用于显示尺寸
+const coverWidth = computed(function () {
+  if (coverRef.value) {
+    return coverRef.value.offsetWidth
+  }
+  return 0
+})
+
+watch(
+  function () {
+    return props.isSelected
+  },
+  function (selected) {
+    if (!selected) {
+      isResizing.value = false
+    }
+  },
+)
+
+onBeforeUnmount(function () {
+  document.removeEventListener('mousemove', onResizeMove)
+  document.removeEventListener('mouseup', onResizeEnd)
+})
 </script>
 
 <template>
-  <!-- 无背景时：占位符 -->
-  <div
-    v-if="!hasBackground"
-    class="wp-block-cover-placeholder"
-    @dragover.prevent
-    @drop.prevent="handleDrop"
-  >
-    <div class="placeholder-content">
-      <div class="header">
-        <span class="icon" v-html="coverIcon"></span>
-        <span>封面</span>
-      </div>
-      <div class="tips">拖放图片或视频，上传，或从你的库中选择。</div>
-      <div class="button-row">
-        <button class="button primary" @click.stop="onUpload">上传</button>
-        <button class="button" @click.stop="onMediaLibrary">媒体库</button>
-        <button class="button" @click.stop="onUseFeaturedImage">使用特色图片</button>
-      </div>
+  <div class="wp-block-cover-wrapper">
+    <!-- 工具栏（有背景时显示） -->
+    <div v-if="isSelected && hasBackground" class="block-editor-format-toolbar cover-toolbar">
+      <!-- 更换背景按钮 -->
+      <button type="button" class="format-button" title="更换背景" @click="replaceBackground">
+        <svg viewBox="0 0 24 24" width="24" height="24">
+          <path
+            d="M19 7v2.99s-1.99.01-2 0V7h-3s.01-1.99 0-2h3V2h2v3h3v2h-3zm-3 4V8h-3V5H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-8h-3zM5 19l3-4 2 3 3-4 4 5H5z"
+            fill="currentColor"
+          />
+        </svg>
+      </button>
 
-      <!-- 颜色选择器 -->
-      <div class="color-picker">
-        <div
-          v-for="(color, index) in presetColors"
-          :key="index"
-          class="color-item"
-          :style="{ backgroundColor: color }"
-          :class="{ 'is-light': color === '#ffffff' || color === '#e0e0e0' || color === '#cfcfcf' }"
-          @click="selectColor(color)"
-        ></div>
-      </div>
+      <div class="format-divider"></div>
+
+      <!-- 文本对齐按钮 -->
+      <button
+        type="button"
+        class="format-button"
+        :class="{ 'is-active': textAlign === 'left' }"
+        title="左对齐"
+        @click="textAlign = 'left'"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M4 5h16v1.5H4V5zm0 5.5h10V12H4v-1.5zm0 5.5h16v1.5H4V16z" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="format-button"
+        :class="{ 'is-active': textAlign === 'center' || !textAlign }"
+        title="居中对齐"
+        @click="textAlign = 'center'"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M4 5h16v1.5H4V5zm3 5.5h10V12H7v-1.5zM4 16h16v1.5H4V16z" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="format-button"
+        :class="{ 'is-active': textAlign === 'right' }"
+        title="���对齐"
+        @click="textAlign = 'right'"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20">
+          <path d="M4 5h16v1.5H4V5zm6 5.5h10V12H10v-1.5zM4 16h16v1.5H4V16z" fill="currentColor" />
+        </svg>
+      </button>
+
+      <div class="format-divider"></div>
+
+      <!-- 富文本工具栏 -->
+      <FormatToolbar :editor-ref="editorRef" />
     </div>
 
-    <input
-      ref="fileInput"
-      type="file"
-      accept="image/*,video/*"
-      style="display: none"
-      @change="handleFileChange"
-    />
-  </div>
+    <!-- 无背景时：占位符 -->
+    <div
+      v-if="!hasBackground"
+      class="wp-block-cover-placeholder"
+      @dragover.prevent
+      @drop.prevent="handleDrop"
+    >
+      <div class="placeholder-content">
+        <div class="header">
+          <span class="icon" v-html="coverIcon"></span>
+          <span>封面</span>
+        </div>
+        <div class="tips">拖放图片或视频，上传，或从你的库中选择。</div>
+        <div class="button-row">
+          <button class="button primary" @click.stop="onUpload">上传</button>
+          <button class="button" @click.stop="onMediaLibrary">媒体库</button>
+          <button class="button" @click.stop="onUseFeaturedImage">使用特色图片</button>
+        </div>
 
-  <!-- 有背景时：显示封面 -->
-  <div v-else class="wp-block-cover" :style="coverStyle">
-    <span class="wp-block-cover__background" :style="{ background: overlayColor }"></span>
+        <!-- 颜色选择器 -->
+        <div class="color-picker">
+          <div
+            v-for="(color, index) in presetColors"
+            :key="index"
+            class="color-item"
+            :style="{ backgroundColor: color }"
+            :class="{
+              'is-light': color === '#ffffff' || color === '#e0e0e0' || color === '#cfcfcf',
+            }"
+            @click="selectColor(color)"
+          ></div>
+        </div>
+      </div>
 
-    <div class="wp-block-cover__inner-container">
-      <RichTextEditor
-        v-model="title"
-        tag="p"
-        class="cover-title"
-        placeholder="输入标题…"
-        @change-complete="handleChangeComplete"
+      <input
+        ref="fileInput"
+        type="file"
+        accept="image/*,video/*"
+        style="display: none"
+        @change="handleFileChange"
       />
     </div>
 
-    <div v-if="isSelected" class="cover-toolbar">
-      <label>
-        高度:
-        <input type="number" v-model.number="minHeight" min="100" max="800" />px
-      </label>
-      <button type="button" @click="onUpload">更换图片</button>
-      <button type="button" @click="removeBackground">移除背景</button>
-    </div>
+    <!-- 有背景时：显示封面 -->
+    <div
+      v-else
+      ref="coverRef"
+      class="wp-block-cover"
+      :class="{
+        'is-selected': isSelected,
+        'is-resizing': isResizing,
+        'has-dark-text': useDarkText,
+      }"
+      :style="coverStyle"
+    >
+      <div class="wp-block-cover__inner-container" :style="{ textAlign: textAlign }">
+        <RichTextEditor
+          ref="editorRef"
+          v-model="title"
+          tag="p"
+          class="cover-title"
+          :text-align="textAlign"
+          placeholder="输入标题…"
+          @change-complete="handleChangeComplete"
+        />
+      </div>
 
-    <input
-      ref="fileInput"
-      type="file"
-      accept="image/*,video/*"
-      style="display: none"
-      @change="handleFileChange"
-    />
+      <!-- 尺寸指示器（拖拽时显示） -->
+      <div v-if="isResizing" class="size-indicator">
+        {{ coverWidth || '100%' }} x {{ currentHeight }}
+      </div>
+
+      <!-- 底部拖拽手柄（选中时显示） -->
+      <div v-if="isSelected" class="resize-handle" @mousedown="onResizeStart">
+        <span class="handle-circle"></span>
+      </div>
+
+      <input
+        ref="fileInput"
+        type="file"
+        accept="image/*,video/*"
+        style="display: none"
+        @change="handleFileChange"
+      />
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* ========== 外层包裹 ========== */
+.wp-block-cover-wrapper {
+  width: 100%;
+}
+
+/* ========== 工具栏 ========== */
+.cover-toolbar {
+  margin-bottom: 8px;
+}
+
 /* ========== 占位符样式 ========== */
 .wp-block-cover-placeholder {
   border: 1px solid #1e1e1e;
@@ -338,20 +503,20 @@ function removeBackground() {
   justify-content: center;
   background-size: cover;
   background-position: center;
-  background-color: #1e1e1e;
   border-radius: 4px;
-  overflow: hidden;
+  overflow: visible;
 }
 
-.wp-block-cover__background {
-  position: absolute;
-  inset: 0;
+/* 选中时显示蓝色边框 */
+.wp-block-cover.is-selected,
+.wp-block-cover.is-resizing {
+  outline: 1.5px solid #3858e9;
+  outline-offset: 2px;
 }
 
 .wp-block-cover__inner-container {
   position: relative;
   z-index: 1;
-  text-align: center;
   padding: 20px;
   width: 100%;
 }
@@ -363,37 +528,91 @@ function removeBackground() {
   margin: 0;
 }
 
-.cover-toolbar {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 4px;
-  font-size: 12px;
+/* 浅色背景时使用深色文字 */
+.wp-block-cover.has-dark-text .cover-title {
+  color: #1e1e1e;
 }
 
-.cover-toolbar input {
-  width: 60px;
-  padding: 2px 4px;
-  border: 1px solid #ddd;
+.wp-block-cover.has-dark-text .cover-title :deep(a) {
+  color: #3858e9;
+}
+
+/* 富文本格式 */
+.cover-title :deep(strong),
+.cover-title :deep(b) {
+  font-weight: bold;
+}
+
+.cover-title :deep(em),
+.cover-title :deep(i) {
+  font-style: italic;
+}
+
+.cover-title :deep(s),
+.cover-title :deep(del) {
+  text-decoration: line-through;
+}
+
+.cover-title :deep(code) {
+  font-family: monospace;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.1em 0.3em;
   border-radius: 2px;
 }
 
-.cover-toolbar button {
-  padding: 4px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 12px;
+.wp-block-cover.has-dark-text .cover-title :deep(code) {
+  background: rgba(0, 0, 0, 0.1);
 }
 
-.cover-toolbar button:hover {
-  background: #f0f0f0;
+.cover-title :deep(a) {
+  color: #90caf9;
+  text-decoration: underline;
+}
+
+.cover-title :deep(mark) {
+  padding: 0.1em 0;
+}
+
+/* 底部拖拽手柄 */
+.resize-handle {
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  cursor: ns-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.handle-circle {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid #3858e9;
+  border-radius: 50%;
+  background: #fff;
+  transition: background 0.15s;
+}
+
+.resize-handle:hover .handle-circle {
+  background: #3858e9;
+}
+
+/* 尺寸指示器 */
+.size-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  background: #1e1e1e;
+  color: #fff;
+  font-size: 12px;
+  border-radius: 2px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 10;
 }
 </style>

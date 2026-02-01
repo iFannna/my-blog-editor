@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useEditorStore } from '../../editor/store.js'
 import { getIcon } from '@/icons/index.js'
+import URLPopover from '../../editor/components/URLPopover.vue'
 
 const props = defineProps({
   attributes: { type: Object, required: true },
@@ -14,6 +15,8 @@ const store = useEditorStore()
 
 const audioIcon = getIcon('audio')
 const fileInput = ref(null)
+const urlButtonRef = ref(null)
+const showURLPopover = ref(false)
 
 const src = computed({
   get: function () {
@@ -51,11 +54,18 @@ function handleFileChange(e) {
 }
 
 function onInsertUrl() {
-  var url = prompt('请输入音频地址:')
-  if (url) {
-    src.value = url
+  showURLPopover.value = true
+}
+
+function handleURLSubmit(inputUrl) {
+  if (inputUrl) {
+    src.value = inputUrl
     store.commitBlockChanges()
   }
+}
+
+function handleURLClose() {
+  showURLPopover.value = false
 }
 
 function onMediaLibrary() {
@@ -81,13 +91,22 @@ function handleCaptionChange(e) {
   caption.value = e.target.value
   store.commitBlockChanges()
 }
+
+watch(
+  function () {
+    return props.isSelected
+  },
+  function (selected) {
+    if (!selected) {
+      showURLPopover.value = false
+    }
+  },
+)
 </script>
 
 <template>
   <!-- 无音频时：占位符 -->
   <div v-if="!src" class="wp-block-audio" @dragover.prevent @drop.prevent="handleDrop">
-    <!-- 选中时：完整交互占位符 -->
-
     <div class="header">
       <span class="icon" v-html="audioIcon"></span>
       <span>音频</span>
@@ -96,7 +115,7 @@ function handleCaptionChange(e) {
     <div class="button-row">
       <button class="button" @click.stop="onUpload">上传</button>
       <button class="button" @click.stop="onMediaLibrary">媒体库</button>
-      <button class="button" @click.stop="onInsertUrl">URL插入</button>
+      <button ref="urlButtonRef" class="button" @click.stop="onInsertUrl">URL插入</button>
     </div>
 
     <input
@@ -105,6 +124,14 @@ function handleCaptionChange(e) {
       accept="audio/*"
       style="display: none"
       @change="handleFileChange"
+    />
+
+    <URLPopover
+      v-model:visible="showURLPopover"
+      :anchor-el="urlButtonRef"
+      placeholder="粘贴或输入音频 URL"
+      @submit="handleURLSubmit"
+      @close="handleURLClose"
     />
   </div>
 

@@ -36,18 +36,29 @@ const textAlign = computed({
   },
 })
 const tagName = computed(() => 'h' + level.value)
+
 function setLevel(l) {
   level.value = l
 }
+
 function handleChangeComplete() {
   store.commitBlockChanges()
 }
 
-// 保证切换tag时内容不丢
+// 保证切换tag时内容不丢，并正确更新 placeholder 状态
 watch(level, () => {
   nextTick(() => {
-    if (editorRef.value && content.value) {
-      editorRef.value.innerHTML = content.value
+    if (editorRef.value) {
+      var editor = editorRef.value.$el || editorRef.value
+      if (editor && content.value) {
+        editor.innerHTML = content.value
+        // 强制更新 data-empty 属性
+        var isEmpty =
+          !content.value ||
+          content.value === '<br>' ||
+          content.value.replace(/<[^>]+>/g, '').trim() === ''
+        editor.setAttribute('data-empty', isEmpty ? 'true' : 'false')
+      }
     }
   })
 })
@@ -104,6 +115,7 @@ watch(level, () => {
       <FormatToolbar :editor-ref="editorRef" />
     </div>
     <RichTextEditor
+      :key="level"
       ref="editorRef"
       v-model="content"
       :tag="tagName"

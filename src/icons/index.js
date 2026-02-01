@@ -170,6 +170,8 @@ export const icons = {
   // 高亮/画笔
   highlight:
     '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M15.24 2c.54 0 1.05.21 1.43.59l2.74 2.74c.79.79.79 2.07 0 2.86l-9.9 9.9c-.38.38-.89.59-1.42.59H4.5a1 1 0 0 1-1-1v-3.59c0-.53.21-1.04.59-1.42l9.9-9.9a2.02 2.02 0 0 1 1.43-.59zM5.5 16.09V18h1.91l9.36-9.36-1.91-1.91-9.36 9.36z"/></svg>',
+  // 间隔
+  spacer: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24" height="24" aria-hidden="true" focusable="false"><path d="M7 18h4.5v1.5h-7v-7H6V17L17 6h-4.5V4.5h7v7H18V7L7 18Z"></path></svg>`,
 }
 
 /**

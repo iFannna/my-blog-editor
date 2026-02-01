@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useEditorStore } from '../../editor/store.js'
 import { getIcon } from '@/icons/index.js'
+import URLPopover from '../../editor/components/URLPopover.vue'
 
 const props = defineProps({
   attributes: { type: Object, required: true },
@@ -15,6 +16,10 @@ const store = useEditorStore()
 const galleryIcon = getIcon('gallery')
 const fileInput = ref(null)
 const showAddMenu = ref(false)
+const urlButtonRef = ref(null)
+const addButtonRef = ref(null)
+const showURLPopover = ref(false)
+const popoverAnchor = ref(null)
 
 // 图片列表（最多9张）
 const images = computed({
@@ -74,14 +79,29 @@ function handleFileChange(e) {
   e.target.value = ''
 }
 
-// URL插入
-function onInsertUrl() {
-  showAddMenu.value = false
+// URL插入（占位符状态）
+function onInsertUrlFromPlaceholder() {
   if (images.value.length >= 9) {
     alert('最多只能添加9张图片')
     return
   }
-  var url = prompt('请输入图片地址:')
+  popoverAnchor.value = urlButtonRef.value
+  showURLPopover.value = true
+}
+
+// URL插入（下拉菜单）- 使用添加按钮作为锚点
+function onInsertUrlFromMenu() {
+  if (images.value.length >= 9) {
+    alert('最多只能添加9张图片')
+    return
+  }
+  // 使用工具栏的添加按钮作为锚点，因为菜单会关闭
+  popoverAnchor.value = addButtonRef.value
+  showAddMenu.value = false
+  showURLPopover.value = true
+}
+
+function handleURLSubmit(url) {
   if (url) {
     var newImages = images.value.slice()
     newImages.push({
@@ -92,6 +112,10 @@ function onInsertUrl() {
     images.value = newImages
     store.commitBlockChanges()
   }
+}
+
+function handleURLClose() {
+  showURLPopover.value = false
 }
 
 // 媒体库
@@ -154,6 +178,18 @@ onMounted(function () {
 onBeforeUnmount(function () {
   document.removeEventListener('click', handleClickOutside)
 })
+
+watch(
+  function () {
+    return props.isSelected
+  },
+  function (selected) {
+    if (!selected) {
+      showURLPopover.value = false
+      showAddMenu.value = false
+    }
+  },
+)
 </script>
 
 <template>
@@ -188,7 +224,9 @@ onBeforeUnmount(function () {
       <div class="button-row">
         <button class="button" @click.stop="onUpload">上传</button>
         <button class="button" @click.stop="onMediaLibrary">媒体库</button>
-        <button class="button" @click.stop="onInsertUrl">URL插入</button>
+        <button ref="urlButtonRef" class="button" @click.stop="onInsertUrlFromPlaceholder">
+          URL插入
+        </button>
       </div>
     </template>
 
@@ -200,6 +238,14 @@ onBeforeUnmount(function () {
       style="display: none"
       @change="handleFileChange"
     />
+
+    <URLPopover
+      v-model:visible="showURLPopover"
+      :anchor-el="popoverAnchor"
+      placeholder="粘贴或输入图片 URL"
+      @submit="handleURLSubmit"
+      @close="handleURLClose"
+    />
   </div>
 
   <!-- 有图片时：显示画廊 -->
@@ -208,6 +254,7 @@ onBeforeUnmount(function () {
     <div v-if="isSelected" class="block-editor-format-toolbar gallery-toolbar">
       <div class="add-menu-wrapper">
         <button
+          ref="addButtonRef"
           type="button"
           class="format-button"
           :class="{ 'is-active': showAddMenu }"
@@ -224,11 +271,17 @@ onBeforeUnmount(function () {
         <div v-show="showAddMenu" class="add-dropdown-menu" @click.stop>
           <button type="button" class="menu-item" @click="onUpload">
             <span class="menu-icon">
-              <svg viewBox="0 0 24 24" width="24" height="24">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="24"
+                height="24"
+                aria-hidden="true"
+                focusable="false"
+              >
                 <path
-                  d="M18.5 15v3.5H13V15h5.5zM13 13v-2.5h5.5V13H13zm0-4V6.5h5.5V9H13zm-1 10H6.5V6.5H12v-2H6.5a2 2 0 00-2 2v12.5h7.5V19zm1.5 0v-2h6v.5a1.5 1.5 0 01-1.5 1.5h-4.5zm4.5-8.5V13h.5a1.5 1.5 0 001.5-1.5V11h-2v.5zm0-3.5h2V6a1.5 1.5 0 00-1.5-1.5H18v1.5z"
-                  fill="currentColor"
-                />
+                  d="M18.5 15v3.5H13V6.7l4.5 4.1 1-1.1-6.2-5.8-5.8 5.8 1 1.1 4-4v11.7h-6V15H4v5h16v-5z"
+                ></path>
               </svg>
             </span>
             <span class="menu-label">上传</span>
@@ -238,7 +291,7 @@ onBeforeUnmount(function () {
             <span class="menu-icon">
               <svg viewBox="0 0 24 24" width="24" height="24">
                 <path
-                  d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c0-.3.2-.5.5-.5zm14 15H5c-.3 0-.5-.2-.5-.5v-2.4l4.1-3 3 1.9c.3.2.7.2.9-.1L16 12l3.5 3.4V19c0 .3-.2.5-.5.5z"
+                  d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 4.5h14c.3 0 .5.2.5.5v8.4l-3-2.9c-.3-.3-.8-.3-1 0L11.9 14 9 12c-.3-.2-.6-.2-.8 0l-3.6 2.6V5c0-.3.2-.5.5-.5z"
                   fill="currentColor"
                 />
               </svg>
@@ -246,11 +299,11 @@ onBeforeUnmount(function () {
             <span class="menu-label">媒体库</span>
           </button>
 
-          <button type="button" class="menu-item" @click="onInsertUrl">
+          <button type="button" class="menu-item" @click="onInsertUrlFromMenu">
             <span class="menu-icon">
               <svg viewBox="0 0 24 24" width="24" height="24">
                 <path
-                  d="M15.6 7.2H14v1.5h1.6c2 0 3.7 1.7 3.7 3.7s-1.7 3.7-3.7 3.7H14v1.5h1.6c2.8 0 5.2-2.3 5.2-5.2 0-2.9-2.3-5.2-5.2-5.2zM4.7 12.4c0-2 1.7-3.7 3.7-3.7H10V7.2H8.4c-2.9 0-5.2 2.3-5.2 5.2 0 2.9 2.3 5.2 5.2 5.2H10v-1.5H8.4c-2 0-3.7-1.7-3.7-3.7zm4.6.9h5.3v-1.5H9.3v1.5z"
+                  d="M15.6 7.2H14v1.5h1.6c2 0 3.7 1.7 3.7 3.7s-1.7 3.7-3.7 3.7H14v1.5h1.6c2.8 0 5.2-2.3 5.2-5.2 0-2.9-2.3-5.2-5.2-5.2zM4.7 12.4c0-2 1.7-3.7 3.7-3.7H10V7.2H8.4c-2.9 0-5.2 2.3-5.2 5.2s2.3 5.2 5.2 5.2H10v-1.5H8.4c-2-.1-3.7-1.7-3.7-3.7zm4.6.5h5.3v-1.5H9.3v1.5z"
                   fill="currentColor"
                 />
               </svg>
@@ -296,6 +349,14 @@ onBeforeUnmount(function () {
       multiple
       style="display: none"
       @change="handleFileChange"
+    />
+
+    <URLPopover
+      v-model:visible="showURLPopover"
+      :anchor-el="popoverAnchor"
+      placeholder="粘贴或输入图片 URL"
+      @submit="handleURLSubmit"
+      @close="handleURLClose"
     />
   </figure>
 </template>

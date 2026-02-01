@@ -69,6 +69,7 @@ defineExpose({
     autocapitalize="off"
     :data-empty="isEmpty"
     :data-placeholder="placeholder"
+    :data-align="textAlign || 'left'"
   ></component>
 </template>
 
@@ -87,9 +88,30 @@ defineExpose({
   font-size: inherit;
   font-weight: inherit;
   position: absolute;
-  left: 0;
   top: 0;
   opacity: 1;
+}
+
+/* 根据对齐方式定位 placeholder */
+.block-editor-rich-text[data-align='left']:empty::before,
+.block-editor-rich-text[data-align='left'][data-empty='true']::before {
+  left: 0;
+  right: auto;
+  text-align: left;
+}
+
+.block-editor-rich-text[data-align='center']:empty::before,
+.block-editor-rich-text[data-align='center'][data-empty='true']::before {
+  left: 0;
+  right: 0;
+  text-align: center;
+}
+
+.block-editor-rich-text[data-align='right']:empty::before,
+.block-editor-rich-text[data-align='right'][data-empty='true']::before {
+  left: auto;
+  right: 0;
+  text-align: right;
 }
 
 .block-editor-rich-text[data-empty='false']::before {

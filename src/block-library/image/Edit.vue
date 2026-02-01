@@ -20,7 +20,7 @@
       </svg>
     </template>
 
-    <!-- 选中时：完整交互占位符（使用你原有的样式） -->
+    <!-- 选中时：完整交互占位符 -->
     <template v-else>
       <div class="header">
         <span class="icon" v-html="imageIcon"></span>
@@ -30,7 +30,7 @@
       <div class="button-row">
         <button class="button" @click.stop="onUpload">上传</button>
         <button class="button" @click.stop="onMediaLibrary">媒体库</button>
-        <button class="button" @click.stop="onInsertUrl">URL插入</button>
+        <button ref="urlButtonRef" class="button" @click.stop="onInsertUrl">URL插入</button>
       </div>
     </template>
 
@@ -41,19 +41,44 @@
       style="display: none"
       @change="handleFileChange"
     />
+
+    <URLPopover
+      v-model:visible="showURLPopover"
+      :anchor-el="urlButtonRef"
+      placeholder="粘贴或输入图片 URL"
+      @submit="handleURLSubmit"
+      @close="handleURLClose"
+    />
   </div>
 
   <!-- 有图片时：显示图片 -->
-  <figure v-else class="wp-block-image">
-    <img :src="url" :alt="alt" />
+  <figure
+    v-else
+    ref="figureRef"
+    class="wp-block-image has-image"
+    :class="{ 'is-selected': isSelected, 'is-resizing': isResizing }"
+  >
+    <div class="image-wrapper" :style="imageWrapperStyle">
+      <img :src="url" :alt="alt" :style="imageStyle" @load="onImageLoad" />
+
+      <!-- 尺寸指示器（拖拽时显示） -->
+      <div v-if="isResizing" class="size-indicator">{{ currentWidth }} x {{ currentHeight }}</div>
+
+      <!-- 底部拖拽手柄（选中时显示） -->
+      <div v-if="isSelected" class="resize-handle" @mousedown="onResizeStart">
+        <span class="handle-circle"></span>
+      </div>
+    </div>
+
     <figcaption v-if="caption">{{ caption }}</figcaption>
   </figure>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useEditorStore } from '../../editor/store.js'
 import { getIcon } from '@/icons/index.js'
+import URLPopover from '../../editor/components/URLPopover.vue'
 
 const props = defineProps({
   attributes: {
@@ -75,6 +100,19 @@ const store = useEditorStore()
 
 const imageIcon = getIcon('image')
 const fileInput = ref(null)
+const urlButtonRef = ref(null)
+const showURLPopover = ref(false)
+const figureRef = ref(null)
+
+// 缩放相关
+const isResizing = ref(false)
+const startY = ref(0)
+const startWidth = ref(0)
+const startHeight = ref(0)
+const naturalWidth = ref(0)
+const naturalHeight = ref(0)
+const currentWidth = ref(0)
+const currentHeight = ref(0)
 
 // 属性
 const url = computed({
@@ -104,6 +142,104 @@ const caption = computed({
   },
 })
 
+const width = computed({
+  get() {
+    return props.attributes.width || ''
+  },
+  set(val) {
+    emit('update:attributes', { width: val })
+  },
+})
+
+const height = computed({
+  get() {
+    return props.attributes.height || ''
+  },
+  set(val) {
+    emit('update:attributes', { height: val })
+  },
+})
+
+// 图片包裹层样式
+const imageWrapperStyle = computed(function () {
+  var style = {
+    position: 'relative',
+    display: 'inline-block',
+    maxWidth: '100%',
+  }
+  if (width.value) {
+    style.width = width.value
+  }
+  return style
+})
+
+// 图片样式
+const imageStyle = computed(function () {
+  var style = {
+    display: 'block',
+    maxWidth: '100%',
+    height: 'auto',
+  }
+  if (width.value) {
+    style.width = '100%'
+  }
+  if (height.value) {
+    style.height = height.value
+  }
+  return style
+})
+
+// 图片加载完成
+function onImageLoad(e) {
+  naturalWidth.value = e.target.naturalWidth
+  naturalHeight.value = e.target.naturalHeight
+  currentWidth.value = e.target.offsetWidth
+  currentHeight.value = e.target.offsetHeight
+}
+
+// 开始缩放
+function onResizeStart(e) {
+  e.preventDefault()
+  e.stopPropagation()
+
+  isResizing.value = true
+  startY.value = e.clientY
+
+  var img = figureRef.value.querySelector('img')
+  startWidth.value = img.offsetWidth
+  startHeight.value = img.offsetHeight
+  currentWidth.value = startWidth.value
+  currentHeight.value = startHeight.value
+
+  document.addEventListener('mousemove', onResizeMove)
+  document.addEventListener('mouseup', onResizeEnd)
+}
+
+function onResizeMove(e) {
+  if (!isResizing.value) return
+
+  var deltaY = e.clientY - startY.value
+  var aspectRatio = naturalWidth.value / naturalHeight.value
+
+  var newHeight = Math.max(50, startHeight.value + deltaY)
+  var newWidth = Math.round(newHeight * aspectRatio)
+
+  currentWidth.value = newWidth
+  currentHeight.value = newHeight
+  width.value = newWidth + 'px'
+  height.value = newHeight + 'px'
+}
+
+function onResizeEnd() {
+  if (isResizing.value) {
+    isResizing.value = false
+    store.commitBlockChanges()
+  }
+
+  document.removeEventListener('mousemove', onResizeMove)
+  document.removeEventListener('mouseup', onResizeEnd)
+}
+
 // 上传按钮
 function onUpload() {
   fileInput.value?.click()
@@ -115,6 +251,8 @@ function handleFileChange(e) {
     var reader = new FileReader()
     reader.onload = function () {
       url.value = reader.result
+      width.value = ''
+      height.value = ''
       store.commitBlockChanges()
     }
     reader.readAsDataURL(file)
@@ -124,17 +262,25 @@ function handleFileChange(e) {
 
 // 媒体库按钮
 function onMediaLibrary() {
-  // 媒体库功能待实现
   alert('媒体库功能待实现')
 }
 
 // URL插入按钮
 function onInsertUrl() {
-  var inputUrl = prompt('请输入图片地址:')
+  showURLPopover.value = true
+}
+
+function handleURLSubmit(inputUrl) {
   if (inputUrl) {
     url.value = inputUrl
+    width.value = ''
+    height.value = ''
     store.commitBlockChanges()
   }
+}
+
+function handleURLClose() {
+  showURLPopover.value = false
 }
 
 // 拖拽上传
@@ -146,12 +292,30 @@ function handleDrop(e) {
       var reader = new FileReader()
       reader.onload = function () {
         url.value = reader.result
+        width.value = ''
+        height.value = ''
         store.commitBlockChanges()
       }
       reader.readAsDataURL(file)
     }
   }
 }
+
+watch(
+  function () {
+    return props.isSelected
+  },
+  function (selected) {
+    if (!selected) {
+      showURLPopover.value = false
+    }
+  },
+)
+
+onBeforeUnmount(function () {
+  document.removeEventListener('mousemove', onResizeMove)
+  document.removeEventListener('mouseup', onResizeEnd)
+})
 </script>
 
 <style scoped>
@@ -178,7 +342,7 @@ function handleDrop(e) {
   border-radius: 3px;
 }
 
-/* 对角线 SVG 插图 */
+/* 对��线 SVG 插图 */
 .placeholder-illustration {
   position: absolute;
   top: 50%;
@@ -188,5 +352,83 @@ function handleDrop(e) {
   height: 100%;
   stroke: currentColor;
   opacity: 0.25;
+}
+
+/* 有图片时 - 居中显示，无边框 */
+.wp-block-image.has-image {
+  margin: 0;
+  border: none !important;
+  text-align: center;
+}
+
+.wp-block-image.has-image img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.wp-block-image.has-image figcaption {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #757575;
+  text-align: center;
+}
+
+/* 图片包裹层 - 居中 */
+.image-wrapper {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* 选中状态 - 蓝色边框 */
+.wp-block-image.is-selected .image-wrapper,
+.wp-block-image.is-resizing .image-wrapper {
+  outline: 1.5px solid #3858e9;
+  outline-offset: 2px;
+}
+
+/* 底部拖拽手柄 */
+.resize-handle {
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  cursor: ns-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.handle-circle {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid #3858e9;
+  border-radius: 50%;
+  background: #fff;
+  transition: background 0.15s;
+}
+
+.resize-handle:hover .handle-circle {
+  background: #3858e9;
+}
+
+/* 尺寸指示器 */
+.size-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  background: #1e1e1e;
+  color: #fff;
+  font-size: 12px;
+  border-radius: 2px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 10;
 }
 </style>
