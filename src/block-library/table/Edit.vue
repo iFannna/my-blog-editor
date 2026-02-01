@@ -614,7 +614,7 @@ function getAlignIcon() {
 
 /* 单元格编辑器 */
 .table-cell-editor {
-  min-height: 1.5em;
+  min-height: 2em;
   padding: 0.5em;
   outline: none;
 }

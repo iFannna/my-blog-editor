@@ -85,39 +85,19 @@ function handleCaptionChange(e) {
 
 <template>
   <!-- 无音频时：占位符 -->
-  <div
-    v-if="!src"
-    class="wp-block-audio"
-    :class="{ 'has-illustration': !isSelected }"
-    @dragover.prevent
-    @drop.prevent="handleDrop"
-  >
-    <!-- 未选中时：简约占位符（带对角线插图） -->
-    <template v-if="!isSelected">
-      <svg
-        class="placeholder-illustration"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 60 60"
-        preserveAspectRatio="none"
-      >
-        <path vector-effect="non-scaling-stroke" d="M60 60 0 0" />
-      </svg>
-    </template>
-
+  <div v-if="!src" class="wp-block-audio" @dragover.prevent @drop.prevent="handleDrop">
     <!-- 选中时：完整交互占位符 -->
-    <template v-else>
-      <div class="header">
-        <span class="icon" v-html="audioIcon"></span>
-        <span>音频</span>
-      </div>
-      <div class="tips">拖放音频、上传或从你的库中选择。</div>
-      <div class="button-row">
-        <button class="button" @click.stop="onUpload">上传</button>
-        <button class="button" @click.stop="onMediaLibrary">媒体库</button>
-        <button class="button" @click.stop="onInsertUrl">URL插入</button>
-      </div>
-    </template>
+
+    <div class="header">
+      <span class="icon" v-html="audioIcon"></span>
+      <span>音频</span>
+    </div>
+    <div class="tips">拖放音频、上传或从你的库中选择。</div>
+    <div class="button-row">
+      <button class="button" @click.stop="onUpload">上传</button>
+      <button class="button" @click.stop="onMediaLibrary">媒体库</button>
+      <button class="button" @click.stop="onInsertUrl">URL插入</button>
+    </div>
 
     <input
       ref="fileInput"
@@ -144,7 +124,7 @@ function handleCaptionChange(e) {
 </template>
 
 <style scoped>
-/* ========== 占位符样式（与图片区块一致） ========== */
+/* ========== 占位符样式 ========== */
 .wp-block-audio:not(.has-audio) {
   border: 1px solid #1e1e1e;
   border-radius: 2px;
@@ -156,36 +136,6 @@ function handleCaptionChange(e) {
   justify-content: center;
   align-items: flex-start;
   position: relative;
-}
-
-.wp-block-audio.has-illustration {
-  border: none;
-  background-color: transparent;
-  padding: 0;
-}
-
-.wp-block-audio.has-illustration::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  pointer-events: none;
-  background: currentColor;
-  opacity: 0.1;
-  border-radius: 3px;
-}
-
-.placeholder-illustration {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 100%;
-  height: 100%;
-  stroke: currentColor;
-  opacity: 0.25;
 }
 
 .header {
